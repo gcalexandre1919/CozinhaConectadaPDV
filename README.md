@@ -94,5 +94,5 @@ Para problemas:
 3. Consulte `INSTRUCOES_EXECUCAO.md` para detalhes completos
 
 ---
-Desenvolvido com ❤️ usando C# e ASP.NET Core + SQL Server
+Desenvolvido usando C# e ASP.NET Core + SQL Server
 
