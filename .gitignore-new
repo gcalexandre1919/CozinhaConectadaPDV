@@ -1,0 +1,48 @@
+# Visual Studio / VS Code
+.vs/
+.vscode/
+bin/
+obj/
+*.user
+*.suo
+*.cache
+
+# .NET
+*.dll
+*.exe
+*.pdb
+*.deps.json
+*.runtimeconfig.json
+*.dll.config
+
+# Packages
+packages/
+*.nupkg
+
+# Logs
+*.log
+logs/
+
+# Database
+*.db
+*.db-shm
+*.db-wal
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temp
+temp/
+tmp/
+*.tmp
+
+# IDE
+.idea/
+*.swp
+*.swo

@@ -110,4 +110,4 @@ Para problemas:
 3. Consulte a documentação em `docs/` para detalhes completos
 
 ---
-Desenvolvido com ❤️ usando C# e ASP.NET Core + SQL Server
+Desenvolvido usando C# e ASP.NET Core + SQL Server
