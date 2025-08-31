@@ -1,0 +1,378 @@
+@page "/pedidos"
+@inject HttpClient Http
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Pedidos - Sistema PDV</PageTitle>
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="fas fa-shopping-cart me-2"></i>Gestão de Pedidos</h2>
+        <a href="/pedidos/novo" class="btn btn-primary">
+            <i class="fas fa-plus me-2"></i>Novo Pedido
+        </a>
+    </div>
+
+    <!-- Filtros -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">Status</label>
+                    <select class="form-select" @bind="filtroStatus" @bind:after="FiltrarPedidos">
+                        <option value="">Todos</option>
+                        <option value="@StatusPedido.Aberto">Aberto</option>
+                        <option value="@StatusPedido.Preparando">Preparando</option>
+                        <option value="@StatusPedido.Pronto">Pronto</option>
+                        <option value="@StatusPedido.Entregue">Entregue</option>
+                        <option value="@StatusPedido.Fechado">Fechado</option>
+                        <option value="@StatusPedido.Cancelado">Cancelado</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Tipo</label>
+                    <select class="form-select" @bind="filtroTipo" @bind:after="FiltrarPedidos">
+                        <option value="">Todos</option>
+                        <option value="@TipoPedido.Retirada">Retirada</option>
+                        <option value="@TipoPedido.Entrega">Entrega</option>
+                        <option value="@TipoPedido.RefeicaoNoLocal">Refeição no Local</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Data Início</label>
+                    <input type="date" class="form-control" @bind="dataInicio" @bind:after="FiltrarPedidos" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Data Fim</label>
+                    <input type="date" class="form-control" @bind="dataFim" @bind:after="FiltrarPedidos" />
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (carregando)
+    {
+        <div class="text-center">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Carregando...</span>
+            </div>
+        </div>
+    }
+    else
+    {
+        <!-- Cards de Resumo -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card bg-primary text-white">
+                    <div class="card-body text-center">
+                        <h5 class="card-title">Pedidos em Aberto</h5>
+                        <h2>@pedidosEmAberto</h2>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-info text-white">
+                    <div class="card-body text-center">
+                        <h5 class="card-title">Total Hoje</h5>
+                        <h2>@totalPedidosHoje</h2>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-success text-white">
+                    <div class="card-body text-center">
+                        <h5 class="card-title">Faturamento Hoje</h5>
+                        <h2>R$ @faturamentoHoje.ToString("F2")</h2>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-warning text-white">
+                    <div class="card-body text-center">
+                        <h5 class="card-title">Média por Pedido</h5>
+                        <h2>R$ @mediaPorPedido.ToString("F2")</h2>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Lista de Pedidos -->
+        <div class="row">
+            @if (pedidosFiltrados.Any())
+            {
+                @foreach (var pedido in pedidosFiltrados.Take(20))
+                {
+                    <div class="col-lg-6 col-xl-4 mb-3">
+                        <div class="card h-100 @ObterClasseCardStatus(pedido.Status)">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <strong>Pedido #@pedido.Id</strong>
+                                <span class="badge bg-@ObterCorStatus(pedido.Status)">
+                                    @ObterDescricaoStatus(pedido.Status)
+                                </span>
+                            </div>
+                            <div class="card-body">
+                                <div class="mb-2">
+                                    <i class="fas fa-user me-2"></i><strong>@pedido.NomeCliente</strong>
+                                </div>
+                                <div class="mb-2">
+                                    <i class="fas fa-tag me-2"></i>@ObterDescricaoTipo(pedido.Tipo)
+                                </div>
+                                <div class="mb-2">
+                                    <i class="fas fa-clock me-2"></i>@pedido.DataCriacao.ToString("dd/MM/yyyy HH:mm")
+                                </div>
+                                <div class="mb-3">
+                                    <i class="fas fa-list me-2"></i>@pedido.Itens.Count item(s)
+                                </div>
+                                
+                                @if (!string.IsNullOrEmpty(pedido.Observacoes))
+                                {
+                                    <div class="mb-2">
+                                        <small class="text-muted">
+                                            <i class="fas fa-comment me-1"></i>@pedido.Observacoes
+                                        </small>
+                                    </div>
+                                }
+
+                                <hr />
+                                
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <strong class="fs-5 text-success">R$ @pedido.ValorTotal.ToString("F2")</strong>
+                                    <div class="btn-group btn-group-sm">
+                                        <button class="btn btn-outline-primary" @onclick="() => VerDetalhes(pedido.Id)">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                        <button class="btn btn-outline-info" @onclick="() => ImprimirPedido(pedido.Id)">
+                                            <i class="fas fa-print"></i>
+                                        </button>
+                                        @if (pedido.Status == StatusPedido.Aberto)
+                                        {
+                                            @if (pedido.Tipo == TipoPedido.RefeicaoNoLocal)
+                                            {
+                                                <button class="btn btn-outline-warning" @onclick="() => FecharConta(pedido.Id)">
+                                                    <i class="fas fa-cash-register"></i>
+                                                </button>
+                                            }
+                                            <button class="btn btn-outline-danger" @onclick="() => CancelarPedido(pedido.Id)">
+                                                <i class="fas fa-times"></i>
+                                            </button>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
+            }
+            else
+            {
+                <div class="col-12">
+                    <div class="alert alert-info text-center">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Nenhum pedido encontrado com os filtros selecionados.
+                    </div>
+                </div>
+            }
+        </div>
+
+        @if (pedidosFiltrados.Count > 20)
+        {
+            <div class="text-center mt-4">
+                <div class="alert alert-warning">
+                    Mostrando 20 de @pedidosFiltrados.Count pedidos. Use os filtros para refinar a busca.
+                </div>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    private List<PedidoDto> pedidos = new();
+    private List<PedidoDto> pedidosFiltrados = new();
+    
+    private string? filtroStatus = "";
+    private string? filtroTipo = "";
+    private DateTime? dataInicio;
+    private DateTime? dataFim;
+    
+    private bool carregando = true;
+    
+    // Estatísticas
+    private int pedidosEmAberto = 0;
+    private int totalPedidosHoje = 0;
+    private decimal faturamentoHoje = 0;
+    private decimal mediaPorPedido = 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CarregarPedidos();
+        CalcularEstatisticas();
+        FiltrarPedidos();
+    }
+
+    private async Task CarregarPedidos()
+    {
+        try
+        {
+            pedidos = await Http.GetFromJsonAsync<List<PedidoDto>>("http://localhost:5000/api/pedidos") ?? new();
+        }
+        catch (Exception ex)
+        {
+            // Durante o prerendering, não podemos usar JSRuntime
+            // O erro será exibido na interface se necessário
+            Console.WriteLine($"Erro ao carregar pedidos: {ex.Message}");
+        }
+        finally
+        {
+            carregando = false;
+        }
+    }
+
+    private void CalcularEstatisticas()
+    {
+        var hoje = DateTime.Today;
+        var pedidosHoje = pedidos.Where(p => p.DataCriacao.Date == hoje).ToList();
+        
+        pedidosEmAberto = pedidos.Count(p => p.Status == StatusPedido.Aberto);
+        totalPedidosHoje = pedidosHoje.Count;
+        faturamentoHoje = pedidosHoje.Where(p => p.Status != StatusPedido.Cancelado).Sum(p => p.ValorTotal);
+        mediaPorPedido = totalPedidosHoje > 0 ? faturamentoHoje / totalPedidosHoje : 0;
+    }
+
+    private void FiltrarPedidos()
+    {
+        pedidosFiltrados = pedidos.AsQueryable().Where(p => true).ToList();
+
+        // Filtrar por status
+        if (!string.IsNullOrEmpty(filtroStatus) && Enum.TryParse<StatusPedido>(filtroStatus, out var status))
+        {
+            pedidosFiltrados = pedidosFiltrados.Where(p => p.Status == status).ToList();
+        }
+
+        // Filtrar por tipo
+        if (!string.IsNullOrEmpty(filtroTipo) && Enum.TryParse<TipoPedido>(filtroTipo, out var tipo))
+        {
+            pedidosFiltrados = pedidosFiltrados.Where(p => p.Tipo == tipo).ToList();
+        }
+
+        // Filtrar por data
+        if (dataInicio.HasValue)
+        {
+            pedidosFiltrados = pedidosFiltrados.Where(p => p.DataCriacao.Date >= dataInicio.Value.Date).ToList();
+        }
+
+        if (dataFim.HasValue)
+        {
+            pedidosFiltrados = pedidosFiltrados.Where(p => p.DataCriacao.Date <= dataFim.Value.Date).ToList();
+        }
+
+        // Ordenar por data mais recente
+        pedidosFiltrados = pedidosFiltrados.OrderByDescending(p => p.DataCriacao).ToList();
+    }
+
+    private void VerDetalhes(int pedidoId)
+    {
+        Navigation.NavigateTo($"/pedidos/{pedidoId}");
+    }
+
+    private async Task ImprimirPedido(int pedidoId)
+    {
+        try
+        {
+            var response = await Http.PostAsync($"http://localhost:5000/api/pedidos/{pedidoId}/imprimir", null);
+            if (response.IsSuccessStatusCode)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "Pedido enviado para impressão!");
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Erro ao imprimir: {ex.Message}");
+        }
+    }
+
+    private async Task FecharConta(int pedidoId)
+    {
+        try
+        {
+            var fecharContaDto = new FecharContaDto { PedidoId = pedidoId };
+            var response = await Http.PostAsJsonAsync($"http://localhost:5000/api/pedidos/{pedidoId}/fechar-conta", fecharContaDto);
+            
+            if (response.IsSuccessStatusCode)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "Conta fechada com sucesso!");
+                await CarregarPedidos();
+                CalcularEstatisticas();
+                FiltrarPedidos();
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Erro ao fechar conta: {ex.Message}");
+        }
+    }
+
+    private async Task CancelarPedido(int pedidoId)
+    {
+        var confirmar = await JSRuntime.InvokeAsync<bool>("confirm", "Deseja realmente cancelar este pedido?");
+        if (!confirmar) return;
+
+        try
+        {
+            var response = await Http.PostAsync($"http://localhost:5000/api/pedidos/{pedidoId}/cancelar", null);
+            if (response.IsSuccessStatusCode)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "Pedido cancelado!");
+                await CarregarPedidos();
+                CalcularEstatisticas();
+                FiltrarPedidos();
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Erro ao cancelar: {ex.Message}");
+        }
+    }
+
+    private static string ObterDescricaoTipo(TipoPedido tipo) => tipo switch
+    {
+        TipoPedido.Retirada => "🛒 Retirada",
+        TipoPedido.Entrega => "🚚 Entrega",
+        TipoPedido.RefeicaoNoLocal => "🍽️ Refeição no Local",
+        _ => tipo.ToString()
+    };
+
+    private static string ObterDescricaoStatus(StatusPedido status) => status switch
+    {
+        StatusPedido.Aberto => "Aberto",
+        StatusPedido.Preparando => "Preparando",
+        StatusPedido.Pronto => "Pronto",
+        StatusPedido.Entregue => "Entregue",
+        StatusPedido.Cancelado => "Cancelado",
+        StatusPedido.Fechado => "Fechado",
+        _ => status.ToString()
+    };
+
+    private static string ObterCorStatus(StatusPedido status) => status switch
+    {
+        StatusPedido.Aberto => "primary",
+        StatusPedido.Preparando => "warning",
+        StatusPedido.Pronto => "info",
+        StatusPedido.Entregue => "success",
+        StatusPedido.Cancelado => "danger",
+        StatusPedido.Fechado => "secondary",
+        _ => "secondary"
+    };
+
+    private static string ObterClasseCardStatus(StatusPedido status) => status switch
+    {
+        StatusPedido.Aberto => "border-primary",
+        StatusPedido.Preparando => "border-warning",
+        StatusPedido.Pronto => "border-info",
+        StatusPedido.Entregue => "border-success",
+        StatusPedido.Cancelado => "border-danger",
+        StatusPedido.Fechado => "border-secondary",
+        _ => ""
+    };
+}

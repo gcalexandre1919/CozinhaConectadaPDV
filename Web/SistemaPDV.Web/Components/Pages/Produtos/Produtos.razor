@@ -1,0 +1,436 @@
+@page "/produtos"
+@rendermode InteractiveServer
+@using SistemaPDV.Core.DTOs
+@inject HttpClient Http
+@inject NavigationManager Navigation
+
+<PageTitle>Produtos - Sistema PDV</PageTitle>
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="fas fa-box me-2"></i>Gestão de Produtos</h2>
+        <a href="/produtos/novo" class="btn btn-primary">
+            <i class="fas fa-plus me-2"></i>Novo Produto
+        </a>
+    </div>
+
+    <!-- Filtros -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label class="form-label">Buscar Produto</label>
+                        <input type="text" class="form-control" @bind="filtroNome"
+                               placeholder="Nome ou código..." />
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="form-group">
+                        <label class="form-label">Categoria</label>
+                        <select class="form-select" @bind="filtroCategoria">
+                            <option value="">Todas as categorias</option>
+                            @foreach (var categoria in categorias)
+                            {
+                                <option value="@categoria.Id">@categoria.Nome</option>
+                            }
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="form-group">
+                        <label class="form-label">Status</label>
+                        <select class="form-select" @bind="filtroStatus">
+                            <option value="">Todos</option>
+                            <option value="true">Ativo</option>
+                            <option value="false">Inativo</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="form-group">
+                        <label class="form-label">Ordenar por</label>
+                        <select class="form-select" @bind="ordenacao">
+                            <option value="nome">Nome</option>
+                            <option value="preco">Preço</option>
+                            <option value="categoria">Categoria</option>
+                            <option value="estoque">Estoque</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-12">
+                        <button class="btn btn-primary" @onclick="FiltrarProdutos">
+                            <i class="fas fa-search me-2"></i>Filtrar
+                        </button>
+                        <button class="btn btn-secondary ms-2" @onclick="LimparFiltros">
+                            <i class="fas fa-times me-2"></i>Limpar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Estatísticas -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card text-white bg-primary">
+                <div class="card-body">
+                    <h5 class="card-title">Total de Produtos</h5>
+                    <h3>@produtosFiltrados.Count</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white bg-success">
+                <div class="card-body">
+                    <h5 class="card-title">Produtos Ativos</h5>
+                    <h3>@produtosFiltrados.Count(p => p.Ativo)</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white bg-warning">
+                <div class="card-body">
+                    <h5 class="card-title">Estoque Baixo</h5>
+                    <h3>@produtosFiltrados.Count(p => p.QuantidadeEstoque <= 10)</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white bg-info">
+                <div class="card-body">
+                    <h5 class="card-title">Valor Total</h5>
+                    <h3>@produtosFiltrados.Where(p => p.Ativo).Sum(p => p.Preco * p.QuantidadeEstoque).ToString("C")</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading -->
+    @if (carregando)
+    {
+        <div class="text-center">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Carregando...</span>
+            </div>
+            <p class="mt-2">Carregando produtos...</p>
+        </div>
+    }
+    else
+    {
+        <!-- Tabela de Produtos -->
+        <div class="card">
+            <div class="card-body">
+                @if (produtosFiltrados.Any())
+                {
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>Código</th>
+                                    <th>Nome</th>
+                                    <th>Categoria</th>
+                                    <th>Preço</th>
+                                    <th>Estoque</th>
+                                    <th>Status</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var produto in produtosFiltrados.Take(50))
+                                {
+                                    <tr class="@(produto.QuantidadeEstoque <= 10 ? "table-warning" : "")">
+                                        <td>
+                                            <code>@produto.Codigo</code>
+                                        </td>
+                                        <td>
+                                            <strong>@produto.Nome</strong>
+                                            @if (!string.IsNullOrEmpty(produto.Descricao))
+                                            {
+                                                <br><small class="text-muted">@produto.Descricao</small>
+                                            }
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-secondary">@produto.CategoriaNome</span>
+                                        </td>
+                                        <td>
+                                            <strong class="text-success">@produto.Preco.ToString("C")</strong>
+                                        </td>
+                                        <td>
+                                            @if (produto.QuantidadeEstoque <= 10)
+                                            {
+                                                <span class="badge bg-warning text-dark">
+                                                    <i class="fas fa-exclamation-triangle me-1"></i>@produto.QuantidadeEstoque
+                                                </span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-success">@produto.QuantidadeEstoque</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            @if (produto.Ativo)
+                                            {
+                                                <span class="badge bg-success">Ativo</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-danger">Inativo</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            <div class="btn-group btn-group-sm">
+                                                <a href="/produtos/editar/@produto.Id" class="btn btn-outline-primary" title="Editar">
+                                                    <i class="fas fa-edit"></i>
+                                                </a>
+                                                <button class="btn btn-outline-info" @onclick="() => VerDetalhes(produto.Id)" title="Detalhes">
+                                                    <i class="fas fa-eye"></i>
+                                                </button>
+                                                @if (produto.Ativo)
+                                                {
+                                                    <button class="btn btn-outline-warning" @onclick="() => AlternarStatus(produto.Id)" title="Desativar">
+                                                        <i class="fas fa-pause"></i>
+                                                    </button>
+                                                }
+                                                else
+                                                {
+                                                    <button class="btn btn-outline-success" @onclick="() => AlternarStatus(produto.Id)" title="Ativar">
+                                                        <i class="fas fa-play"></i>
+                                                    </button>
+                                                }
+                                                <button class="btn btn-outline-danger" @onclick="() => ConfirmarExclusao(produto)" title="Excluir">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+
+                    @if (produtosFiltrados.Count > 50)
+                    {
+                        <div class="alert alert-info mt-3">
+                            <i class="fas fa-info-circle me-2"></i>
+                            Mostrando os primeiros 50 produtos de @produtosFiltrados.Count encontrados. 
+                            Use os filtros para refinar a busca.
+                        </div>
+                    }
+                }
+                else
+                {
+                    <div class="text-center py-5">
+                        <i class="fas fa-box fa-3x text-muted mb-3"></i>
+                        <h4 class="text-muted">Nenhum produto encontrado</h4>
+                        <p class="text-muted">Tente ajustar os filtros ou cadastre novos produtos.</p>
+                        <a href="/produtos/novo" class="btn btn-primary">
+                            <i class="fas fa-plus me-2"></i>Cadastrar Primeiro Produto
+                        </a>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+</div>
+
+<!-- Modal de Confirmação de Exclusão -->
+@if (produtoParaExcluir != null)
+{
+    <div class="modal show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Confirmar Exclusão</h5>
+                </div>
+                <div class="modal-body">
+                    <p>Tem certeza que deseja excluir o produto <strong>@produtoParaExcluir.Nome</strong>?</p>
+                    <p class="text-danger">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        Esta ação não pode ser desfeita.
+                    </p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CancelarExclusao">
+                        Cancelar
+                    </button>
+                    <button type="button" class="btn btn-danger" @onclick="ExcluirProduto">
+                        <i class="fas fa-trash me-2"></i>Excluir
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<ProdutoDto> produtos = new();
+    private List<ProdutoDto> produtosFiltrados = new();
+    private List<CategoriaDto> categorias = new();
+    private bool carregando = true;
+
+    // Filtros
+    private string filtroNome = "";
+    private string filtroCategoria = "";
+    private string filtroStatus = "";
+    private string ordenacao = "nome";
+
+    // Modal
+    private ProdutoDto? produtoParaExcluir = null;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await CarregarDados();
+            StateHasChanged();
+        }
+    }
+
+    private async Task CarregarDados()
+    {
+        try
+        {
+            var taskProdutos = Http.GetFromJsonAsync<List<ProdutoDto>>("http://localhost:5000/api/produtos");
+            var taskCategorias = Http.GetFromJsonAsync<List<CategoriaDto>>("http://localhost:5000/api/categorias");
+
+            await Task.WhenAll(taskProdutos, taskCategorias);
+
+            produtos = await taskProdutos ?? new();
+            categorias = await taskCategorias ?? new();
+
+            FiltrarProdutos();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Erro ao carregar dados: {ex.Message}");
+        }
+        finally
+        {
+            carregando = false;
+        }
+    }
+
+    private void FiltrarProdutos()
+    {
+        var query = produtos.AsEnumerable();
+
+        // Filtro por nome
+        if (!string.IsNullOrWhiteSpace(filtroNome))
+        {
+            query = query.Where(p => 
+                p.Nome.Contains(filtroNome, StringComparison.OrdinalIgnoreCase) ||
+                p.Codigo.Contains(filtroNome, StringComparison.OrdinalIgnoreCase) ||
+                (p.Descricao?.Contains(filtroNome, StringComparison.OrdinalIgnoreCase) ?? false));
+        }
+
+        // Filtro por categoria
+        if (!string.IsNullOrWhiteSpace(filtroCategoria) && int.TryParse(filtroCategoria, out int categoriaId))
+        {
+            query = query.Where(p => p.CategoriaId == categoriaId);
+        }
+
+        // Filtro por status
+        if (!string.IsNullOrWhiteSpace(filtroStatus) && bool.TryParse(filtroStatus, out bool status))
+        {
+            query = query.Where(p => p.Ativo == status);
+        }
+
+        // Ordenação
+        query = ordenacao switch
+        {
+            "preco" => query.OrderBy(p => p.Preco),
+            "categoria" => query.OrderBy(p => p.CategoriaNome),
+            "estoque" => query.OrderBy(p => p.QuantidadeEstoque),
+            _ => query.OrderBy(p => p.Nome)
+        };
+
+        produtosFiltrados = query.ToList();
+        StateHasChanged();
+    }
+
+    private void LimparFiltros()
+    {
+        filtroNome = "";
+        filtroCategoria = "";
+        filtroStatus = "";
+        ordenacao = "nome";
+        FiltrarProdutos();
+    }
+
+    private void VerDetalhes(int produtoId)
+    {
+        Navigation.NavigateTo($"/produtos/detalhes/{produtoId}");
+    }
+
+    private async Task AlternarStatus(int produtoId)
+    {
+        try
+        {
+            var response = await Http.PutAsync($"http://localhost:5000/api/produtos/{produtoId}/status", null);
+            if (response.IsSuccessStatusCode)
+            {
+                await CarregarDados();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Erro ao alterar status: {ex.Message}");
+        }
+    }
+
+    private void ConfirmarExclusao(ProdutoDto produto)
+    {
+        produtoParaExcluir = produto;
+    }
+
+    private void CancelarExclusao()
+    {
+        produtoParaExcluir = null;
+    }
+
+    private async Task ExcluirProduto()
+    {
+        if (produtoParaExcluir == null) return;
+
+        try
+        {
+            var response = await Http.DeleteAsync($"http://localhost:5000/api/produtos/{produtoParaExcluir.Id}");
+            if (response.IsSuccessStatusCode)
+            {
+                produtoParaExcluir = null;
+                await CarregarDados();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Erro ao excluir produto: {ex.Message}");
+        }
+    }
+}
+
+<style>
+    .card {
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        border: none;
+    }
+
+    .table th {
+        border-top: none;
+        font-weight: 600;
+    }
+
+    .badge {
+        font-size: 0.75em;
+    }
+
+    .btn-group-sm .btn {
+        padding: 0.25rem 0.5rem;
+    }
+
+    .modal.show {
+        display: block !important;
+    }
+</style>

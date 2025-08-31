@@ -1,0 +1,152 @@
+@using Microsoft.AspNetCore.Components.Web
+@namespace SistemaPDV.Web.Components
+@inherits LayoutComponentBase
+
+<div class="page">
+    <div class="sidebar">
+        <nav class="flex-column">
+            <div class="nav-item px-3">
+                <div class="d-flex align-items-center mb-3">
+                    <i class="fas fa-utensils text-primary me-2 fs-4"></i>
+                    <span class="fw-bold text-white">Cozinha Conectada</span>
+                </div>
+            </div>
+
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="/" Match="NavLinkMatch.All">
+                    <i class="fas fa-home me-2"></i> Dashboard
+                </NavLink>
+            </div>
+
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="/clientes">
+                    <i class="fas fa-users me-2"></i> Clientes
+                </NavLink>
+            </div>
+
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="/produtos">
+                    <i class="fas fa-box me-2"></i> Produtos
+                </NavLink>
+            </div>
+
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="/categorias">
+                    <i class="fas fa-tags me-2"></i> Categorias
+                </NavLink>
+            </div>
+
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="/pedidos">
+                    <i class="fas fa-shopping-cart me-2"></i> Pedidos
+                </NavLink>
+                <NavLink class="nav-link" href="/pedidos/novo">
+                    <i class="fas fa-plus-circle me-2"></i> Novo Pedido
+                </NavLink>
+            </div>
+
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="/impressoras">
+                    <i class="fas fa-print me-2"></i> Impressoras
+                </NavLink>
+            </div>
+
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="/relatorios">
+                    <i class="fas fa-chart-bar me-2"></i> Relatórios
+                </NavLink>
+            </div>
+        </nav>
+    </div>
+
+    <main>
+        <div class="top-row px-4">
+            <div class="d-flex justify-content-between align-items-center">
+                <h1 class="text-primary mb-0">Sistema PDV</h1>
+                <div>
+                    <button class="btn btn-outline-primary btn-sm me-2">
+                        <i class="fas fa-user me-1"></i> Perfil
+                    </button>
+                    <button class="btn btn-outline-danger btn-sm">
+                        <i class="fas fa-sign-out-alt me-1"></i> Sair
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <article class="content px-4">
+            @Body
+        </article>
+    </main>
+</div>
+
+<style>
+    .page {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        min-height: 100vh;
+    }
+
+    .sidebar {
+        background-image: linear-gradient(180deg, rgb(5, 39, 103) 0%, #3a0647 70%);
+        width: 250px;
+        height: 100vh;
+        position: fixed;
+        top: 0;
+        left: 0;
+        z-index: 1000;
+    }
+
+    .sidebar .nav-link {
+        color: rgba(255, 255, 255, 0.8);
+        border-radius: 4px;
+        margin-bottom: 0.5rem;
+        text-decoration: none;
+        padding: 10px 15px;
+        display: block;
+        transition: all 0.2s;
+    }
+
+    .sidebar .nav-link:hover {
+        background-color: rgba(255, 255, 255, 0.1);
+        color: white;
+    }
+
+    .sidebar .nav-link.active {
+        background-color: rgba(255, 255, 255, 0.2);
+        color: white;
+    }
+
+    main {
+        margin-left: 250px;
+        min-height: 100vh;
+    }
+
+    .top-row {
+        background-color: #f8f9fa;
+        border-bottom: 1px solid #dee2e6;
+        padding: 1rem 1.5rem;
+        position: sticky;
+        top: 0;
+        z-index: 900;
+    }
+
+    .content {
+        padding: 1.5rem;
+        background-color: #f8f9fa;
+        min-height: calc(100vh - 80px);
+    }
+
+    @@media (max-width: 768px) {
+        .sidebar {
+            width: 100%;
+            height: auto;
+            position: relative;
+        }
+
+        main {
+            margin-left: 0;
+        }
+    }
+</style>

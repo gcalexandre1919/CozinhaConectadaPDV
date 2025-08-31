@@ -1,0 +1,305 @@
+@page "/categorias"
+@rendermode InteractiveServer
+@using SistemaPDV.Core.DTOs
+@inject HttpClient Http
+@inject NavigationManager Navigation
+
+<PageTitle>Categorias - Sistema PDV</PageTitle>
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="fas fa-tags me-2"></i>Gestão de Categorias</h2>
+        <button class="btn btn-primary" @onclick="AbrirModalNova">
+            <i class="fas fa-plus me-2"></i>Nova Categoria
+        </button>
+    </div>
+
+    <!-- Loading -->
+    @if (carregando)
+    {
+        <div class="text-center">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Carregando...</span>
+            </div>
+            <p class="mt-2">Carregando categorias...</p>
+        </div>
+    }
+    else
+    {
+        <!-- Cards de Categorias -->
+        <div class="row">
+            @if (categorias.Any())
+            {
+                @foreach (var categoria in categorias)
+                {
+                    <div class="col-md-4 col-lg-3 mb-3">
+                        <div class="card h-100">
+                            <div class="card-body">
+                                <h5 class="card-title">@categoria.Nome</h5>
+                                @if (!string.IsNullOrEmpty(categoria.Descricao))
+                                {
+                                    <p class="card-text text-muted">@categoria.Descricao</p>
+                                }
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <small class="text-muted">
+                                        @if (categoria.Ativo)
+                                        {
+                                            <span class="badge bg-success">Ativa</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-danger">Inativa</span>
+                                        }
+                                    </small>
+                                    <div class="btn-group btn-group-sm">
+                                        <button class="btn btn-outline-primary" @onclick="() => AbrirModalEdicao(categoria)" title="Editar">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button class="btn btn-outline-danger" @onclick="() => ConfirmarExclusao(categoria)" title="Excluir">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
+            }
+            else
+            {
+                <div class="col-12">
+                    <div class="text-center py-5">
+                        <i class="fas fa-tags fa-3x text-muted mb-3"></i>
+                        <h4 class="text-muted">Nenhuma categoria encontrada</h4>
+                        <p class="text-muted">Crie sua primeira categoria para organizar os produtos.</p>
+                        <button class="btn btn-primary" @onclick="AbrirModalNova">
+                            <i class="fas fa-plus me-2"></i>Criar Primeira Categoria
+                        </button>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+<!-- Modal de Categoria -->
+@if (mostrarModal)
+{
+    <div class="modal show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        @(categoriaEditando?.Id > 0 ? "Editar Categoria" : "Nova Categoria")
+                    </h5>
+                </div>
+                <div class="modal-body">
+                    <EditForm Model="categoriaEditando" OnValidSubmit="SalvarCategoria" FormName="categoria-form">
+                        <DataAnnotationsValidator />
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Nome *</label>
+                            <InputText class="form-control" @bind-Value="categoriaEditando!.Nome" />
+                            <ValidationMessage For="() => categoriaEditando!.Nome" class="text-danger" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Descrição</label>
+                            <InputTextArea class="form-control" @bind-Value="categoriaEditando!.Descricao" rows="3" />
+                            <ValidationMessage For="() => categoriaEditando!.Descricao" class="text-danger" />
+                        </div>
+
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <InputCheckbox class="form-check-input" @bind-Value="categoriaEditando!.Ativo" />
+                                <label class="form-check-label">Categoria ativa</label>
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-end">
+                            <button type="button" class="btn btn-secondary me-2" @onclick="FecharModal">
+                                Cancelar
+                            </button>
+                            <button type="submit" class="btn btn-primary" disabled="@salvando">
+                                @if (salvando)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-2"></span>
+                                }
+                                <i class="fas fa-save me-2"></i>Salvar
+                            </button>
+                        </div>
+                    </EditForm>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Modal de Confirmação de Exclusão -->
+@if (categoriaParaExcluir != null)
+{
+    <div class="modal show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Confirmar Exclusão</h5>
+                </div>
+                <div class="modal-body">
+                    <p>Tem certeza que deseja excluir a categoria <strong>@categoriaParaExcluir.Nome</strong>?</p>
+                    <p class="text-danger">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        Esta ação não pode ser desfeita.
+                    </p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CancelarExclusao">
+                        Cancelar
+                    </button>
+                    <button type="button" class="btn btn-danger" @onclick="ExcluirCategoria">
+                        <i class="fas fa-trash me-2"></i>Excluir
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<CategoriaDto> categorias = new();
+    private bool carregando = true;
+    private bool mostrarModal = false;
+    private bool salvando = false;
+    private CategoriaDto categoriaEditando = new();
+    private CategoriaDto? categoriaParaExcluir = null;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await CarregarCategorias();
+            StateHasChanged();
+        }
+    }
+
+    private async Task CarregarCategorias()
+    {
+        try
+        {
+            categorias = await Http.GetFromJsonAsync<List<CategoriaDto>>("http://localhost:5000/api/categorias") ?? new();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Erro ao carregar categorias: {ex.Message}");
+        }
+        finally
+        {
+            carregando = false;
+        }
+    }
+
+    private void AbrirModalNova()
+    {
+        categoriaEditando = new CategoriaDto { Ativo = true };
+        mostrarModal = true;
+    }
+
+    private void AbrirModalEdicao(CategoriaDto categoria)
+    {
+        categoriaEditando = new CategoriaDto
+        {
+            Id = categoria.Id,
+            Nome = categoria.Nome,
+            Descricao = categoria.Descricao,
+            Ativo = categoria.Ativo
+        };
+        mostrarModal = true;
+    }
+
+    private void FecharModal()
+    {
+        mostrarModal = false;
+        categoriaEditando = new();
+    }
+
+    private async Task SalvarCategoria()
+    {
+        salvando = true;
+        try
+        {
+            if (categoriaEditando.Id > 0)
+            {
+                // Editar
+                var response = await Http.PutAsJsonAsync($"http://localhost:5000/api/categorias/{categoriaEditando.Id}", categoriaEditando);
+                if (response.IsSuccessStatusCode)
+                {
+                    await CarregarCategorias();
+                    FecharModal();
+                }
+            }
+            else
+            {
+                // Criar
+                var response = await Http.PostAsJsonAsync("http://localhost:5000/api/categorias", categoriaEditando);
+                if (response.IsSuccessStatusCode)
+                {
+                    await CarregarCategorias();
+                    FecharModal();
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Erro ao salvar categoria: {ex.Message}");
+        }
+        finally
+        {
+            salvando = false;
+        }
+    }
+
+    private void ConfirmarExclusao(CategoriaDto categoria)
+    {
+        categoriaParaExcluir = categoria;
+    }
+
+    private void CancelarExclusao()
+    {
+        categoriaParaExcluir = null;
+    }
+
+    private async Task ExcluirCategoria()
+    {
+        if (categoriaParaExcluir == null) return;
+
+        try
+        {
+            var response = await Http.DeleteAsync($"http://localhost:5000/api/categorias/{categoriaParaExcluir.Id}");
+            if (response.IsSuccessStatusCode)
+            {
+                categoriaParaExcluir = null;
+                await CarregarCategorias();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Erro ao excluir categoria: {ex.Message}");
+        }
+    }
+}
+
+<style>
+    .card {
+        transition: transform 0.2s;
+        border: none;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    }
+
+    .modal.show {
+        display: block !important;
+    }
+</style>

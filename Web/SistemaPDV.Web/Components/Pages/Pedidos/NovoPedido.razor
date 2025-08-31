@@ -1,0 +1,524 @@
+@page "/pedidos/novo"
+@page "/pedidos/novo/{ClienteId:int}"
+@rendermode InteractiveServer
+@inject HttpClient Http
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Novo Pedido - Sistema PDV</PageTitle>
+
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2><i class="fas fa-plus-circle me-2"></i>Novo Pedido</h2>
+                <button class="btn btn-outline-secondary" @onclick="VoltarParaPedidos">
+                    <i class="fas fa-arrow-left me-2"></i>Voltar
+                </button>
+            </div>
+
+            @if (carregando)
+            {
+                <div class="text-center">
+                    <div class="spinner-border" role="status">
+                        <span class="visually-hidden">Carregando...</span>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="row">
+                    <!-- Formulário do Pedido -->
+                    <div class="col-lg-8">
+                        <div class="card mb-4">
+                            <div class="card-header">
+                                <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i>Informações do Pedido</h5>
+                            </div>
+                            <div class="card-body">
+                                <EditForm Model="novoPedido" OnValidSubmit="CriarPedido" FormName="novo-pedido-form">
+                                    <DataAnnotationsValidator />
+                                    
+                                    <div class="row">
+                                        <div class="col-md-6 mb-3">
+                                            <label class="form-label">Cliente</label>
+                                            <select class="form-select" @bind="novoPedido.ClienteId">
+                                                <option value="0">Selecione um cliente...</option>
+                                                @foreach (var cliente in clientes)
+                                                {
+                                                    <option value="@cliente.Id">@cliente.Nome</option>
+                                                }
+                                            </select>
+                                            <ValidationMessage For="@(() => novoPedido.ClienteId)" />
+                                        </div>
+                                        
+                                        <div class="col-md-6 mb-3">
+                                            <label class="form-label">Tipo de Pedido</label>
+                                            <select class="form-select" @bind="novoPedido.Tipo" @bind:after="OnTipoChanged">
+                                                <option value="@TipoPedido.Retirada">🛒 Retirada</option>
+                                                <option value="@TipoPedido.Entrega">🚚 Entrega</option>
+                                                <option value="@TipoPedido.RefeicaoNoLocal">🍽️ Refeição no Local</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <!-- Taxa de Garçom (só para Refeição no Local) -->
+                                    @if (novoPedido.Tipo == TipoPedido.RefeicaoNoLocal)
+                                    {
+                                        <div class="row">
+                                            <div class="col-md-6 mb-3">
+                                                <label class="form-label">Taxa do Garçom (%)</label>
+                                                <input type="number" class="form-control" @bind="novoPedido.PercentualGarcom" 
+                                                       min="0" max="100" step="0.1" />
+                                                <div class="form-text">Valor padrão: 10%</div>
+                                            </div>
+                                        </div>
+                                    }
+
+                                    <!-- Taxa de Entrega (só para Entrega) -->
+                                    @if (novoPedido.Tipo == TipoPedido.Entrega)
+                                    {
+                                        <div class="row">
+                                            <div class="col-md-6 mb-3">
+                                                <label class="form-label">Taxa de Entrega (R$)</label>
+                                                <input type="number" class="form-control" @bind="novoPedido.TaxaEntrega" 
+                                                       min="0" step="0.01" />
+                                            </div>
+                                        </div>
+                                    }
+
+                                    <div class="mb-3">
+                                        <label class="form-label">Observações</label>
+                                        <textarea class="form-control" @bind="novoPedido.Observacoes" rows="3"></textarea>
+                                    </div>
+
+                                    <div class="d-flex gap-2">
+                                        <button type="submit" class="btn btn-primary" disabled="@salvando">
+                                            @if (salvando)
+                                            {
+                                                <span class="spinner-border spinner-border-sm me-2"></span>
+                                            }
+                                            <i class="fas fa-save me-2"></i>Criar Pedido
+                                        </button>
+                                        <button type="button" class="btn btn-outline-secondary" @onclick="LimparFormulario">
+                                            <i class="fas fa-eraser me-2"></i>Limpar
+                                        </button>
+                                    </div>
+                                </EditForm>
+                            </div>
+                        </div>
+
+                        <!-- Adicionar Produtos -->
+                        @if (pedidoAtual != null)
+                        {
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5 class="mb-0"><i class="fas fa-shopping-cart me-2"></i>Adicionar Produtos</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-md-6 mb-3">
+                                            <label class="form-label">Produto</label>
+                                            <select class="form-select" @bind="novoItem.ProdutoId">
+                                                <option value="0">Selecione um produto...</option>
+                                                @foreach (var produto in produtos)
+                                                {
+                                                    <option value="@produto.Id">@produto.Nome - R$ @produto.Preco.ToString("F2")</option>
+                                                }
+                                            </select>
+                                        </div>
+                                        
+                                        <div class="col-md-3 mb-3">
+                                            <label class="form-label">Quantidade</label>
+                                            <input type="number" class="form-control" @bind="novoItem.Quantidade" min="1" />
+                                        </div>
+                                        
+                                        <div class="col-md-3 mb-3">
+                                            <label class="form-label">&nbsp;</label>
+                                            <button type="button" class="btn btn-success d-block w-100" @onclick="AdicionarItem" disabled="@(novoItem.ProdutoId == 0)">
+                                                <i class="fas fa-plus me-2"></i>Adicionar
+                                            </button>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label class="form-label">Observações do Item</label>
+                                        <input type="text" class="form-control" @bind="novoItem.Observacoes" placeholder="Ex: Sem cebola, molho à parte..." />
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+
+                    <!-- Resumo do Pedido -->
+                    <div class="col-lg-4">
+                        @if (pedidoAtual != null)
+                        {
+                            <div class="card position-sticky" style="top: 20px;">
+                                <div class="card-header bg-primary text-white">
+                                    <h5 class="mb-0"><i class="fas fa-receipt me-2"></i>Pedido #@pedidoAtual.Id</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="mb-3">
+                                        <strong>Cliente:</strong> @pedidoAtual.NomeCliente<br/>
+                                        <strong>Tipo:</strong> @ObterDescricaoTipo(pedidoAtual.Tipo)<br/>
+                                        <strong>Status:</strong> 
+                                        <span class="badge bg-@ObterCorStatus(pedidoAtual.Status)">@ObterDescricaoStatus(pedidoAtual.Status)</span>
+                                    </div>
+
+                                    <hr />
+
+                                    <h6><i class="fas fa-list me-2"></i>Itens do Pedido</h6>
+                                    @if (pedidoAtual.Itens.Any())
+                                    {
+                                        @foreach (var item in pedidoAtual.Itens)
+                                        {
+                                            <div class="d-flex justify-content-between align-items-center mb-2 p-2 bg-light rounded">
+                                                <div class="flex-grow-1">
+                                                    <strong>@item.NomeProduto</strong><br/>
+                                                    <small class="text-muted">Qtd: @item.Quantidade x R$ @item.PrecoUnitario.ToString("F2")</small>
+                                                    @if (!string.IsNullOrEmpty(item.Observacoes))
+                                                    {
+                                                        <br/><small class="text-info">@item.Observacoes</small>
+                                                    }
+                                                </div>
+                                                <div class="text-end">
+                                                    <strong>R$ @item.SubTotal.ToString("F2")</strong><br/>
+                                                    <button class="btn btn-sm btn-outline-danger" @onclick="() => RemoverItem(item.Id)">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <p class="text-muted">Nenhum item adicionado</p>
+                                    }
+
+                                    <hr />
+
+                                    <!-- Totais -->
+                                    <div class="mb-2">
+                                        <div class="d-flex justify-content-between">
+                                            <span>Subtotal:</span>
+                                            <strong>R$ @pedidoAtual.SubTotal.ToString("F2")</strong>
+                                        </div>
+                                        
+                                        @if (pedidoAtual.ValorGarcom > 0)
+                                        {
+                                            <div class="d-flex justify-content-between">
+                                                <span>Taxa Garçom (@pedidoAtual.PercentualGarcom%):</span>
+                                                <strong>R$ @pedidoAtual.ValorGarcom.Value.ToString("F2")</strong>
+                                            </div>
+                                        }
+                                        
+                                        @if (pedidoAtual.TaxaEntrega > 0)
+                                        {
+                                            <div class="d-flex justify-content-between">
+                                                <span>Taxa Entrega:</span>
+                                                <strong>R$ @pedidoAtual.TaxaEntrega.Value.ToString("F2")</strong>
+                                            </div>
+                                        }
+                                        
+                                        <hr />
+                                        <div class="d-flex justify-content-between">
+                                            <strong>TOTAL:</strong>
+                                            <strong class="text-primary fs-5">R$ @pedidoAtual.ValorTotal.ToString("F2")</strong>
+                                        </div>
+                                    </div>
+
+                                    <!-- Ações -->
+                                    <div class="d-grid gap-2 mt-3">
+                                        @if (pedidoAtual.Tipo == TipoPedido.RefeicaoNoLocal && pedidoAtual.Status == StatusPedido.Aberto)
+                                        {
+                                            <button class="btn btn-warning" @onclick="FecharConta">
+                                                <i class="fas fa-cash-register me-2"></i>Fechar Conta
+                                            </button>
+                                        }
+                                        
+                                        <button class="btn btn-info" @onclick="ImprimirPedido">
+                                            <i class="fas fa-print me-2"></i>Imprimir
+                                        </button>
+                                        
+                                        @if (pedidoAtual.Status == StatusPedido.Aberto)
+                                        {
+                                            <button class="btn btn-danger" @onclick="CancelarPedido">
+                                                <i class="fas fa-times me-2"></i>Cancelar
+                                            </button>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public int? ClienteId { get; set; }
+
+    private CriarPedidoDto novoPedido = new()
+    {
+        Tipo = TipoPedido.Retirada,
+        PercentualGarcom = 10,
+        TaxaEntrega = 0
+    };
+
+    private AdicionarItemDto novoItem = new() { Quantidade = 1 };
+    private PedidoDto? pedidoAtual;
+    
+    private List<ClienteDto> clientes = new();
+    private List<ProdutoDto> produtos = new();
+    
+    private bool carregando = true;
+    private bool salvando = false;
+    private string? mensagemErro = null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CarregarDados();
+        
+        if (ClienteId.HasValue)
+        {
+            novoPedido.ClienteId = ClienteId.Value;
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            if (!string.IsNullOrEmpty(mensagemErro))
+            {
+                await JSRuntime.InvokeVoidAsync("alert", mensagemErro);
+                mensagemErro = null;
+                StateHasChanged();
+            }
+        }
+    }
+
+    private async Task CarregarDados()
+    {
+        try
+        {
+            var clientesTask = Http.GetFromJsonAsync<List<ClienteDto>>("http://localhost:5000/api/clientes");
+            var produtosTask = Http.GetFromJsonAsync<List<ProdutoDto>>("http://localhost:5000/api/produtos");
+            
+            await Task.WhenAll(clientesTask, produtosTask);
+            
+            clientes = clientesTask.Result ?? new();
+            produtos = produtosTask.Result ?? new();
+        }
+        catch (Exception ex)
+        {
+            // Não usar JavaScript durante inicialização - apenas registrar erro
+            mensagemErro = $"Erro ao carregar dados: {ex.Message}";
+        }
+        finally
+        {
+            carregando = false;
+        }
+    }
+
+    private async Task CriarPedido()
+    {
+        if (novoPedido.ClienteId == 0)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", "Selecione um cliente");
+            return;
+        }
+
+        salvando = true;
+        try
+        {
+            var response = await Http.PostAsJsonAsync("http://localhost:5000/api/pedidos", novoPedido);
+            if (response.IsSuccessStatusCode)
+            {
+                pedidoAtual = await response.Content.ReadFromJsonAsync<PedidoDto>();
+                await JSRuntime.InvokeVoidAsync("alert", "Pedido criado com sucesso!");
+                StateHasChanged();
+            }
+            else
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "Erro ao criar pedido");
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Erro: {ex.Message}");
+        }
+        finally
+        {
+            salvando = false;
+        }
+    }
+
+    private async Task AdicionarItem()
+    {
+        if (pedidoAtual == null || novoItem.ProdutoId == 0) return;
+
+        try
+        {
+            var response = await Http.PostAsJsonAsync($"http://localhost:5000/api/pedidos/{pedidoAtual.Id}/itens", novoItem);
+            if (response.IsSuccessStatusCode)
+            {
+                pedidoAtual = await response.Content.ReadFromJsonAsync<PedidoDto>();
+                novoItem = new() { Quantidade = 1 };
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Erro ao adicionar item: {ex.Message}");
+        }
+    }
+
+    private async Task RemoverItem(int itemId)
+    {
+        if (pedidoAtual == null) return;
+
+        try
+        {
+            var response = await Http.DeleteAsync($"http://localhost:5000/api/pedidos/{pedidoAtual.Id}/itens/{itemId}");
+            if (response.IsSuccessStatusCode)
+            {
+                pedidoAtual = await response.Content.ReadFromJsonAsync<PedidoDto>();
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Erro ao remover item: {ex.Message}");
+        }
+    }
+
+    private async Task FecharConta()
+    {
+        if (pedidoAtual == null) return;
+
+        try
+        {
+            var fecharContaDto = new FecharContaDto
+            {
+                PedidoId = pedidoAtual.Id,
+                PercentualGarcomFinal = pedidoAtual.PercentualGarcom
+            };
+
+            var response = await Http.PostAsJsonAsync($"http://localhost:5000/api/pedidos/{pedidoAtual.Id}/fechar-conta", fecharContaDto);
+            if (response.IsSuccessStatusCode)
+            {
+                pedidoAtual = await response.Content.ReadFromJsonAsync<PedidoDto>();
+                await JSRuntime.InvokeVoidAsync("alert", "Conta fechada com sucesso!");
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Erro ao fechar conta: {ex.Message}");
+        }
+    }
+
+    private async Task ImprimirPedido()
+    {
+        if (pedidoAtual == null) return;
+
+        try
+        {
+            var response = await Http.PostAsync($"http://localhost:5000/api/pedidos/{pedidoAtual.Id}/imprimir", null);
+            if (response.IsSuccessStatusCode)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "Pedido enviado para impressão!");
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Erro ao imprimir: {ex.Message}");
+        }
+    }
+
+    private async Task CancelarPedido()
+    {
+        if (pedidoAtual == null) return;
+
+        var confirmar = await JSRuntime.InvokeAsync<bool>("confirm", "Deseja realmente cancelar este pedido?");
+        if (!confirmar) return;
+
+        try
+        {
+            var response = await Http.PostAsync($"http://localhost:5000/api/pedidos/{pedidoAtual.Id}/cancelar", null);
+            if (response.IsSuccessStatusCode)
+            {
+                pedidoAtual = await response.Content.ReadFromJsonAsync<PedidoDto>();
+                await JSRuntime.InvokeVoidAsync("alert", "Pedido cancelado!");
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Erro ao cancelar: {ex.Message}");
+        }
+    }
+
+    private void OnTipoChanged()
+    {
+        // Resetar valores específicos
+        novoPedido.PercentualGarcom = novoPedido.Tipo == TipoPedido.RefeicaoNoLocal ? 10 : null;
+        novoPedido.TaxaEntrega = novoPedido.Tipo == TipoPedido.Entrega ? 0 : null;
+    }
+
+    private void LimparFormulario()
+    {
+        novoPedido = new()
+        {
+            Tipo = TipoPedido.Retirada,
+            PercentualGarcom = 10,
+            TaxaEntrega = 0
+        };
+        pedidoAtual = null;
+        novoItem = new() { Quantidade = 1 };
+    }
+
+    private void VoltarParaPedidos()
+    {
+        Navigation.NavigateTo("/pedidos");
+    }
+
+    private static string ObterDescricaoTipo(TipoPedido tipo) => tipo switch
+    {
+        TipoPedido.Retirada => "🛒 Retirada",
+        TipoPedido.Entrega => "🚚 Entrega",
+        TipoPedido.RefeicaoNoLocal => "🍽️ Refeição no Local",
+        _ => tipo.ToString()
+    };
+
+    private static string ObterDescricaoStatus(StatusPedido status) => status switch
+    {
+        StatusPedido.Aberto => "Aberto",
+        StatusPedido.Preparando => "Preparando",
+        StatusPedido.Pronto => "Pronto",
+        StatusPedido.Entregue => "Entregue",
+        StatusPedido.Cancelado => "Cancelado",
+        StatusPedido.Fechado => "Fechado",
+        _ => status.ToString()
+    };
+
+    private static string ObterCorStatus(StatusPedido status) => status switch
+    {
+        StatusPedido.Aberto => "primary",
+        StatusPedido.Preparando => "warning",
+        StatusPedido.Pronto => "info",
+        StatusPedido.Entregue => "success",
+        StatusPedido.Cancelado => "danger",
+        StatusPedido.Fechado => "secondary",
+        _ => "secondary"
+    };
+}
+
+<style>
+    .position-sticky {
+        top: 20px !important;
+    }
+</style>

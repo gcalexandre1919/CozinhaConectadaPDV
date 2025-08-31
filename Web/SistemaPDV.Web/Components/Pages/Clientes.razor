@@ -1,0 +1,324 @@
+@page "/clientes"
+@using SistemaPDV.Core.DTOs
+@using SistemaPDV.Web.Services
+@inject ClienteApiService ClienteService
+@inject IJSRuntime JSRuntime
+@inject NavigationManager Navigation
+
+<PageTitle>Clientes - Sistema PDV</PageTitle>
+
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2 class="text-primary">
+                    <i class="fas fa-users me-2"></i>Gestão de Clientes
+                </h2>
+                <button class="btn btn-primary" @onclick="NovoClienteForced">
+                    <i class="fas fa-plus me-2"></i>Novo Cliente
+                </button>
+            </div>
+
+            <!-- Barra de busca -->
+            <div class="row mb-4">
+                <div class="col-md-8">
+                    <div class="input-group">
+                        <span class="input-group-text">
+                            <i class="fas fa-search"></i>
+                        </span>
+                        <input type="text" class="form-control" placeholder="Buscar por nome, email, telefone, CPF ou CNPJ..."
+                               @bind="termoBusca" @onkeypress="@(async (e) => { if (e.Key == "Enter") await BuscarClientes(); })" />
+                        <button class="btn btn-outline-secondary" type="button" @onclick="BuscarClientes">
+                            Buscar
+                        </button>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <button class="btn btn-secondary w-100" @onclick="LimparBusca">
+                        <i class="fas fa-times me-2"></i>Limpar
+                    </button>
+                </div>
+            </div>
+
+            <!-- Alertas -->
+            @if (!string.IsNullOrEmpty(mensagemSucesso))
+            {
+                <div class="alert alert-success alert-dismissible fade show" role="alert">
+                    <i class="fas fa-check-circle me-2"></i>@mensagemSucesso
+                    <button type="button" class="btn-close" @onclick="() => mensagemSucesso = string.Empty"></button>
+                </div>
+            }
+
+            @if (!string.IsNullOrEmpty(mensagemErro))
+            {
+                <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                    <i class="fas fa-exclamation-circle me-2"></i>@mensagemErro
+                    <button type="button" class="btn-close" @onclick="() => mensagemErro = string.Empty"></button>
+                </div>
+            }
+
+            <!-- Loading -->
+            @if (carregando)
+            {
+                <div class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Carregando...</span>
+                    </div>
+                    <p class="mt-2 text-muted">Carregando clientes...</p>
+                </div>
+            }
+            else
+            {
+                <!-- Lista de clientes -->
+                @if (clientes.Any())
+                {
+                    <div class="card shadow">
+                        <div class="card-header bg-light">
+                            <h5 class="mb-0">
+                                <i class="fas fa-list me-2"></i>
+                                @clientes.Count cliente(s) encontrado(s)
+                            </h5>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="table-responsive">
+                                <table class="table table-hover mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Nome</th>
+                                            <th>Email</th>
+                                            <th>Telefone</th>
+                                            <th>CPF/CNPJ</th>
+                                            <th>Cidade</th>
+                                            <th>Status</th>
+                                            <th>Cadastro</th>
+                                            <th width="150">Ações</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var cliente in clientes)
+                                        {
+                                            <tr>
+                                                <td>
+                                                    <strong>@cliente.Nome</strong>
+                                                </td>
+                                                <td>
+                                                    @if (!string.IsNullOrEmpty(cliente.Email))
+                                                    {
+                                                        <a href="mailto:@cliente.Email" class="text-decoration-none">
+                                                            @cliente.Email
+                                                        </a>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="text-muted">-</span>
+                                                    }
+                                                </td>
+                                                <td>
+                                                    @if (!string.IsNullOrEmpty(cliente.Telefone))
+                                                    {
+                                                        <a href="tel:@cliente.Telefone" class="text-decoration-none">
+                                                            @cliente.Telefone
+                                                        </a>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="text-muted">-</span>
+                                                    }
+                                                </td>
+                                                <td>
+                                                    @if (!string.IsNullOrEmpty(cliente.CPF))
+                                                    {
+                                                        <span class="badge bg-info">CPF: @cliente.CPF</span>
+                                                    }
+                                                    @if (!string.IsNullOrEmpty(cliente.CNPJ))
+                                                    {
+                                                        <span class="badge bg-warning">CNPJ: @cliente.CNPJ</span>
+                                                    }
+                                                    @if (string.IsNullOrEmpty(cliente.CPF) && string.IsNullOrEmpty(cliente.CNPJ))
+                                                    {
+                                                        <span class="text-muted">-</span>
+                                                    }
+                                                </td>
+                                                <td>
+                                                    @if (!string.IsNullOrEmpty(cliente.Cidade) && !string.IsNullOrEmpty(cliente.UF))
+                                                    {
+                                                        <text>@cliente.Cidade/@cliente.UF</text>
+                                                    }
+                                                    else if (!string.IsNullOrEmpty(cliente.Cidade))
+                                                    {
+                                                        <text>@cliente.Cidade</text>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="text-muted">-</span>
+                                                    }
+                                                </td>
+                                                <td>
+                                                    @if (cliente.Ativo)
+                                                    {
+                                                        <span class="badge bg-success">Ativo</span>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="badge bg-danger">Inativo</span>
+                                                    }
+                                                </td>
+                                                <td>
+                                                    <small class="text-muted">@cliente.DataCadastro.ToString("dd/MM/yyyy")</small>
+                                                </td>
+                                                <td>
+                                                    <div class="btn-group" role="group">
+                                                        <button class="btn btn-outline-primary btn-sm" 
+                                                                @onclick="() => EditarCliente(cliente.Id)"
+                                                                title="Editar">
+                                                            <i class="fas fa-edit"></i>
+                                                        </button>
+                                                        <button class="btn btn-outline-danger btn-sm" 
+                                                                @onclick="() => ConfirmarExclusao(cliente)"
+                                                                title="Excluir">
+                                                            <i class="fas fa-trash"></i>
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <div class="text-center py-5">
+                        <i class="fas fa-users fa-3x text-muted mb-3"></i>
+                        <h4 class="text-muted">Nenhum cliente encontrado</h4>
+                        <p class="text-muted">
+                            @if (string.IsNullOrEmpty(termoBusca))
+                            {
+                                <text>Clique em "Novo Cliente" para adicionar o primeiro cliente.</text>
+                            }
+                            else
+                            {
+                                <text>Tente buscar com outros termos ou limpe a busca.</text>
+                            }
+                        </p>
+                        <a href="/clientes/novo" class="btn btn-primary">
+                            <i class="fas fa-plus me-2"></i>Novo Cliente
+                        </a>
+                    </div>
+                }
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<ClienteDto> clientes = new();
+    private string termoBusca = string.Empty;
+    private bool carregando = true;
+    private string mensagemSucesso = string.Empty;
+    private string mensagemErro = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CarregarClientes();
+    }
+
+    private async Task CarregarClientes()
+    {
+        carregando = true;
+        try
+        {
+            clientes = await ClienteService.ObterTodosAsync();
+        }
+        catch (Exception ex)
+        {
+            mensagemErro = "Erro ao carregar clientes: " + ex.Message;
+        }
+        finally
+        {
+            carregando = false;
+        }
+    }
+
+    private async Task BuscarClientes()
+    {
+        carregando = true;
+        try
+        {
+            if (string.IsNullOrWhiteSpace(termoBusca))
+            {
+                clientes = await ClienteService.ObterTodosAsync();
+            }
+            else
+            {
+                clientes = await ClienteService.BuscarAsync(termoBusca);
+            }
+        }
+        catch (Exception ex)
+        {
+            mensagemErro = "Erro ao buscar clientes: " + ex.Message;
+        }
+        finally
+        {
+            carregando = false;
+        }
+    }
+
+    private async Task LimparBusca()
+    {
+        termoBusca = string.Empty;
+        await CarregarClientes();
+    }
+
+    private void NovoCliente()
+    {
+        Console.WriteLine("Navegando para novo cliente...");
+        Navigation.NavigateTo("/clientes/novo");
+    }
+
+    private void NovoClienteForced()
+    {
+        Console.WriteLine("Navegação forçada para novo cliente...");
+        Navigation.NavigateTo("/clientes/novo", forceLoad: true);
+    }
+
+    private void EditarCliente(int id)
+    {
+        Navigation.NavigateTo($"/clientes/editar/{id}");
+    }
+
+    private async Task ConfirmarExclusao(ClienteDto cliente)
+    {
+        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", 
+            $"Tem certeza que deseja excluir o cliente '{cliente.Nome}'?\n\nEsta ação não pode ser desfeita.");
+        
+        if (confirmed)
+        {
+            await ExcluirCliente(cliente.Id);
+        }
+    }
+
+    private async Task ExcluirCliente(int id)
+    {
+        try
+        {
+            var (sucesso, erro) = await ClienteService.DeletarAsync(id);
+            
+            if (sucesso)
+            {
+                mensagemSucesso = "Cliente excluído com sucesso!";
+                await CarregarClientes();
+            }
+            else
+            {
+                mensagemErro = erro ?? "Erro ao excluir cliente";
+            }
+        }
+        catch (Exception ex)
+        {
+            mensagemErro = "Erro ao excluir cliente: " + ex.Message;
+        }
+    }
+}

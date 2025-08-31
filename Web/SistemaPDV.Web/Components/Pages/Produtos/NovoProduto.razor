@@ -1,0 +1,324 @@
+@page "/produtos/novo"
+@page "/produtos/editar/{Id:int}"
+@rendermode InteractiveServer
+@using SistemaPDV.Core.DTOs
+@inject HttpClient Http
+@inject NavigationManager Navigation
+
+<PageTitle>@(Id.HasValue ? "Editar Produto" : "Novo Produto") - Sistema PDV</PageTitle>
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>
+            <i class="fas fa-box me-2"></i>
+            @(Id.HasValue ? "Editar Produto" : "Novo Produto")
+        </h2>
+        <a href="/produtos" class="btn btn-secondary">
+            <i class="fas fa-arrow-left me-2"></i>Voltar
+        </a>
+    </div>
+
+    @if (carregando)
+    {
+        <div class="text-center">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Carregando...</span>
+            </div>
+            <p class="mt-2">Carregando dados...</p>
+        </div>
+    }
+    else
+    {
+        <div class="row">
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-body">
+                        <EditForm Model="produto" OnValidSubmit="SalvarProduto" FormName="novo-produto-form">
+                            <DataAnnotationsValidator />
+                            
+                            @if (!string.IsNullOrEmpty(mensagemErro))
+                            {
+                                <div class="alert alert-danger">
+                                    <i class="fas fa-exclamation-triangle me-2"></i>
+                                    @mensagemErro
+                                </div>
+                            }
+
+                            @if (!string.IsNullOrEmpty(mensagemSucesso))
+                            {
+                                <div class="alert alert-success">
+                                    <i class="fas fa-check-circle me-2"></i>
+                                    @mensagemSucesso
+                                </div>
+                            }
+
+                            <div class="row">
+                                <div class="col-md-8">
+                                    <div class="mb-3">
+                                        <label class="form-label">Nome *</label>
+                                        <InputText class="form-control" @bind-Value="produto.Nome" />
+                                        <ValidationMessage For="() => produto.Nome" class="text-danger" />
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <label class="form-label">Preço *</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text">R$</span>
+                                            <InputNumber class="form-control" @bind-Value="produto.Preco" 
+                                                       step="0.01" min="0" />
+                                        </div>
+                                        <ValidationMessage For="() => produto.Preco" class="text-danger" />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">Descrição</label>
+                                <InputTextArea class="form-control" @bind-Value="produto.Descricao" 
+                                             rows="3" placeholder="Descrição detalhada do produto..." />
+                                <ValidationMessage For="() => produto.Descricao" class="text-danger" />
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">Categoria *</label>
+                                        <InputSelect class="form-select" @bind-Value="produto.CategoriaId">
+                                            <option value="0">Selecione uma categoria</option>
+                                            @foreach (var categoria in categorias)
+                                            {
+                                                <option value="@categoria.Id">@categoria.Nome</option>
+                                            }
+                                        </InputSelect>
+                                        <ValidationMessage For="() => produto.CategoriaId" class="text-danger" />
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    @if (Id.HasValue)
+                                    {
+                                        <div class="mb-3">
+                                            <label class="form-label">Status</label>
+                                            <div class="form-check form-switch">
+                                                <InputCheckbox class="form-check-input" @bind-Value="produto.Ativo" />
+                                                <label class="form-check-label">
+                                                    @(produto.Ativo ? "Ativo" : "Inativo")
+                                                </label>
+                                            </div>
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+
+                            <div class="d-flex justify-content-end">
+                                <button type="button" class="btn btn-secondary me-2" @onclick="Cancelar">
+                                    <i class="fas fa-times me-2"></i>Cancelar
+                                </button>
+                                <button type="submit" class="btn btn-primary" disabled="@salvando">
+                                    @if (salvando)
+                                    {
+                                        <span class="spinner-border spinner-border-sm me-2"></span>
+                                    }
+                                    <i class="fas fa-save me-2"></i>
+                                    @(Id.HasValue ? "Atualizar" : "Salvar")
+                                </button>
+                            </div>
+                        </EditForm>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">
+                            <i class="fas fa-info-circle me-2"></i>Informações
+                        </h5>
+                        <hr>
+                        
+                        @if (!string.IsNullOrEmpty(produto.Nome))
+                        {
+                            <div class="mb-3">
+                                <label class="form-label small text-muted">PRÉVIA</label>
+                                <div class="border rounded p-3">
+                                    <h6 class="mb-1">@produto.Nome</h6>
+                                    <p class="text-success mb-1">@produto.Preco.ToString("C")</p>
+                                    @if (!string.IsNullOrEmpty(produto.Descricao))
+                                    {
+                                        <small class="text-muted">@produto.Descricao</small>
+                                    }
+                                </div>
+                            </div>
+                        }
+
+                        <div class="mb-3">
+                            <label class="form-label small text-muted">DICAS</label>
+                            <ul class="list-unstyled small">
+                                <li><i class="fas fa-lightbulb text-warning me-2"></i>Use nomes descritivos</li>
+                                <li><i class="fas fa-lightbulb text-warning me-2"></i>Defina preços competitivos</li>
+                                <li><i class="fas fa-lightbulb text-warning me-2"></i>Categorize corretamente</li>
+                                <li><i class="fas fa-lightbulb text-warning me-2"></i>Descrições atraem clientes</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public int? Id { get; set; }
+
+    private ProdutoDto produto = new() { Ativo = true };
+    private List<CategoriaDto> categorias = new();
+    private bool carregando = true;
+    private bool salvando = false;
+    private string mensagemErro = "";
+    private string mensagemSucesso = "";
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await CarregarDados();
+            StateHasChanged();
+        }
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Id.HasValue && Id.Value > 0)
+        {
+            await CarregarProduto();
+        }
+    }
+
+    private async Task CarregarDados()
+    {
+        try
+        {
+            categorias = await Http.GetFromJsonAsync<List<CategoriaDto>>("http://localhost:5000/api/categorias") ?? new();
+        }
+        catch (Exception ex)
+        {
+            mensagemErro = $"Erro ao carregar categorias: {ex.Message}";
+        }
+        finally
+        {
+            carregando = false;
+        }
+    }
+
+    private async Task CarregarProduto()
+    {
+        if (!Id.HasValue) return;
+
+        try
+        {
+            var produtoCarregado = await Http.GetFromJsonAsync<ProdutoDto>($"http://localhost:5000/api/produtos/{Id.Value}");
+            if (produtoCarregado != null)
+            {
+                produto = produtoCarregado;
+            }
+            else
+            {
+                mensagemErro = "Produto não encontrado.";
+            }
+        }
+        catch (Exception ex)
+        {
+            mensagemErro = $"Erro ao carregar produto: {ex.Message}";
+        }
+    }
+
+    private async Task SalvarProduto()
+    {
+        salvando = true;
+        mensagemErro = "";
+        mensagemSucesso = "";
+
+        try
+        {
+            if (produto.CategoriaId == 0)
+            {
+                mensagemErro = "Por favor, selecione uma categoria.";
+                return;
+            }
+
+            if (Id.HasValue && Id.Value > 0)
+            {
+                // Editar produto existente
+                var response = await Http.PutAsJsonAsync($"http://localhost:5000/api/produtos/{Id.Value}", produto);
+                if (response.IsSuccessStatusCode)
+                {
+                    mensagemSucesso = "Produto atualizado com sucesso!";
+                    await Task.Delay(2000);
+                    Navigation.NavigateTo("/produtos");
+                }
+                else
+                {
+                    var erro = await response.Content.ReadAsStringAsync();
+                    mensagemErro = $"Erro ao atualizar produto: {erro}";
+                }
+            }
+            else
+            {
+                // Criar novo produto
+                var novoProduto = new ProdutoCriacaoDto
+                {
+                    Nome = produto.Nome,
+                    Descricao = produto.Descricao,
+                    Preco = produto.Preco,
+                    CategoriaId = produto.CategoriaId
+                };
+
+                var response = await Http.PostAsJsonAsync("http://localhost:5000/api/produtos", novoProduto);
+                if (response.IsSuccessStatusCode)
+                {
+                    mensagemSucesso = "Produto criado com sucesso!";
+                    await Task.Delay(2000);
+                    Navigation.NavigateTo("/produtos");
+                }
+                else
+                {
+                    var erro = await response.Content.ReadAsStringAsync();
+                    mensagemErro = $"Erro ao criar produto: {erro}";
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            mensagemErro = $"Erro ao salvar produto: {ex.Message}";
+        }
+        finally
+        {
+            salvando = false;
+        }
+    }
+
+    private void Cancelar()
+    {
+        Navigation.NavigateTo("/produtos");
+    }
+}
+
+<style>
+    .card {
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        border: none;
+    }
+
+    .form-label {
+        font-weight: 600;
+    }
+
+    .input-group-text {
+        background-color: #f8f9fa;
+        border-color: #ced4da;
+    }
+
+    .list-unstyled li {
+        margin-bottom: 0.5rem;
+    }
+</style>
