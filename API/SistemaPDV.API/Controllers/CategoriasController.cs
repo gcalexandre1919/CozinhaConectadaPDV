@@ -24,13 +24,16 @@ namespace SistemaPDV.API.Controllers
             try
             {
                 var categorias = await _context.Categorias
+                    .Include(c => c.Impressora)
                     .Select(c => new CategoriaDto
                     {
                         Id = c.Id,
                         Nome = c.Nome,
                         Descricao = c.Descricao,
                         Ativo = c.Ativo,
-                        DataCriacao = c.DataCriacao
+                        DataCriacao = c.DataCriacao,
+                        ImpressoraId = c.ImpressoraId,
+                        ImpressoraNome = c.Impressora != null ? c.Impressora.Nome : null
                     })
                     .ToListAsync();
 

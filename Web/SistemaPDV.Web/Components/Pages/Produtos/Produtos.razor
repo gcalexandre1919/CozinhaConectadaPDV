@@ -293,8 +293,8 @@
     {
         try
         {
-            var taskProdutos = Http.GetFromJsonAsync<List<ProdutoDto>>("http://localhost:5000/api/produtos");
-            var taskCategorias = Http.GetFromJsonAsync<List<CategoriaDto>>("http://localhost:5000/api/categorias");
+            var taskProdutos = Http.GetFromJsonAsync<List<ProdutoDto>>("api/produtos");
+            var taskCategorias = Http.GetFromJsonAsync<List<CategoriaDto>>("api/categorias");
 
             await Task.WhenAll(taskProdutos, taskCategorias);
 
@@ -369,7 +369,7 @@
     {
         try
         {
-            var response = await Http.PutAsync($"http://localhost:5000/api/produtos/{produtoId}/status", null);
+            var response = await Http.PutAsync($"api/produtos/{produtoId}/status", null);
             if (response.IsSuccessStatusCode)
             {
                 await CarregarDados();
@@ -397,7 +397,7 @@
 
         try
         {
-            var response = await Http.DeleteAsync($"http://localhost:5000/api/produtos/{produtoParaExcluir.Id}");
+            var response = await Http.DeleteAsync($"api/produtos/{produtoParaExcluir.Id}");
             if (response.IsSuccessStatusCode)
             {
                 produtoParaExcluir = null;

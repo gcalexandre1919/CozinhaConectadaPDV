@@ -81,7 +81,11 @@ namespace SistemaPDV.Infrastructure.Services
 
         private async Task AdicionarItemInternoAsync(int pedidoId, AdicionarItemDto itemDto)
         {
-            var produto = await _context.Produtos.FindAsync(itemDto.ProdutoId);
+            var produto = await _context.Produtos
+                .Include(p => p.Categoria)
+                    .ThenInclude(c => c.Impressora)
+                .FirstOrDefaultAsync(p => p.Id == itemDto.ProdutoId);
+            
             if (produto == null)
                 throw new ArgumentException("Produto não encontrado");
 
@@ -99,6 +103,34 @@ namespace SistemaPDV.Infrastructure.Services
 
             // Recalcular totais do pedido
             await RecalcularTotaisAsync(pedidoId);
+
+            // 🎯 IMPRESSÃO MULTI-ÁREA AUTOMÁTICA
+            await ImprimirItemPorAreaAsync(pedidoId, item, produto);
+        }
+
+        /// <summary>
+        /// Imprime automaticamente o item na impressora específica da categoria (multi-área)
+        /// </summary>
+        private async Task ImprimirItemPorAreaAsync(int pedidoId, PedidoItem item, Produto produto)
+        {
+            try
+            {
+                // Se a categoria tem impressora específica, imprimir o item nela
+                if (produto.Categoria?.ImpressoraId.HasValue == true)
+                {
+                    await _impressaoService.ImprimirItemPorAreaAsync(pedidoId, item.Id, produto.Categoria.ImpressoraId.Value);
+                }
+                else
+                {
+                    // Senão, usar impressora padrão (se configurada)
+                    await _impressaoService.ImprimirItemAsync(pedidoId, item.Id);
+                }
+            }
+            catch (Exception ex)
+            {
+                // Log do erro, mas não interrompe o fluxo do pedido
+                Console.WriteLine($"Erro na impressão automática do item {item.Id}: {ex.Message}");
+            }
         }
 
         public async Task<PedidoDto> RemoverItemAsync(int pedidoId, int itemId)

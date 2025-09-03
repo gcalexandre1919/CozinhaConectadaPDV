@@ -378,5 +378,81 @@ namespace SistemaPDV.Infrastructure.Services
         }
 
         #endregion
+
+        #region Impressão Multi-Área
+
+        public async Task<bool> ImprimirItemPorAreaAsync(int pedidoId, int itemId, int impressoraId)
+        {
+            try
+            {
+                // Buscar o item específico
+                var item = await _context.PedidoItens
+                    .Include(i => i.Produto)
+                    .Include(i => i.Pedido)
+                        .ThenInclude(p => p.Cliente)
+                    .FirstOrDefaultAsync(i => i.Id == itemId && i.PedidoId == pedidoId);
+
+                if (item == null)
+                    return false;
+
+                // Buscar a impressora específica
+                var impressora = await ObterImpressoraPorIdAsync(impressoraId);
+                if (impressora == null)
+                    return false;
+
+                // Gerar conteúdo específico do item para a área
+                var conteudo = GerarConteudoItemPorArea(item);
+
+                // Imprimir diretamente na impressora da área
+                return await ImprimirConteudoAsync(conteudo, impressora);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao imprimir item {ItemId} do pedido {PedidoId} na impressora {ImpressoraId}", 
+                    itemId, pedidoId, impressoraId);
+                return false;
+            }
+        }
+
+        public async Task<bool> ImprimirItemAsync(int pedidoId, int itemId)
+        {
+            try
+            {
+                // Usar impressora padrão
+                var impressora = await ObterImpressoraParaUso(null);
+                if (impressora == null)
+                    return false;
+
+                return await ImprimirItemPorAreaAsync(pedidoId, itemId, impressora.Id);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao imprimir item {ItemId} do pedido {PedidoId}", itemId, pedidoId);
+                return false;
+            }
+        }
+
+        private string GerarConteudoItemPorArea(PedidoItem item)
+        {
+            var sb = new StringBuilder();
+            sb.AppendLine("================================");
+            sb.AppendLine($"     PEDIDO #{item.PedidoId} - ITEM");
+            sb.AppendLine("================================");
+            sb.AppendLine($"Data/Hora: {DateTime.Now:dd/MM/yyyy HH:mm:ss}");
+            sb.AppendLine($"Cliente: {item.Pedido?.Cliente?.Nome ?? "N/A"}");
+            sb.AppendLine("--------------------------------");
+            sb.AppendLine($"PRODUTO: {item.Produto?.Nome}");
+            sb.AppendLine($"Qtd: {item.Quantidade}");
+            
+            if (!string.IsNullOrEmpty(item.Observacoes))
+            {
+                sb.AppendLine($"OBS: {item.Observacoes}");
+            }
+            
+            sb.AppendLine("================================");
+            return sb.ToString();
+        }
+
+        #endregion
     }
 }

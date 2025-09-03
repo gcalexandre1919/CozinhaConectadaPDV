@@ -213,7 +213,7 @@
     {
         try
         {
-            pedidos = await Http.GetFromJsonAsync<List<PedidoDto>>("http://localhost:5000/api/pedidos") ?? new();
+            pedidos = await Http.GetFromJsonAsync<List<PedidoDto>>("api/pedidos") ?? new();
         }
         catch (Exception ex)
         {
@@ -278,7 +278,7 @@
     {
         try
         {
-            var response = await Http.PostAsync($"http://localhost:5000/api/pedidos/{pedidoId}/imprimir", null);
+            var response = await Http.PostAsync($"api/pedidos/{pedidoId}/imprimir", null);
             if (response.IsSuccessStatusCode)
             {
                 await JSRuntime.InvokeVoidAsync("alert", "Pedido enviado para impressão!");
@@ -295,7 +295,7 @@
         try
         {
             var fecharContaDto = new FecharContaDto { PedidoId = pedidoId };
-            var response = await Http.PostAsJsonAsync($"http://localhost:5000/api/pedidos/{pedidoId}/fechar-conta", fecharContaDto);
+            var response = await Http.PostAsJsonAsync($"api/pedidos/{pedidoId}/fechar-conta", fecharContaDto);
             
             if (response.IsSuccessStatusCode)
             {
@@ -319,7 +319,7 @@
 
         try
         {
-            var response = await Http.PostAsync($"http://localhost:5000/api/pedidos/{pedidoId}/cancelar", null);
+            var response = await Http.PostAsync($"api/pedidos/{pedidoId}/cancelar", null);
             if (response.IsSuccessStatusCode)
             {
                 await JSRuntime.InvokeVoidAsync("alert", "Pedido cancelado!");

@@ -16,5 +16,12 @@ namespace SistemaPDV.Core.Entities
         public bool Ativo { get; set; } = true;
         
         public DateTime DataCriacao { get; set; } = DateTime.Now;
+        
+        // Impressão multi-área
+        public int? ImpressoraId { get; set; }
+        public virtual Impressora? Impressora { get; set; }
+        
+        // Navigation properties
+        public virtual ICollection<Produto> Produtos { get; set; } = new List<Produto>();
     }
 }

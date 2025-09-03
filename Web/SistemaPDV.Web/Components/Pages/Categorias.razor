@@ -110,6 +110,20 @@
                         </div>
 
                         <div class="mb-3">
+                            <label class="form-label">Impressora (Multi-Área)</label>
+                            <select class="form-select" @bind="categoriaEditando!.ImpressoraId">
+                                <option value="">Nenhuma impressora específica</option>
+                                <option value="1">Impressora Principal</option>
+                                <option value="2">Impressora Cozinha</option>
+                                <option value="3">Impressora Bar</option>
+                            </select>
+                            <div class="form-text">
+                                <i class="fas fa-info-circle me-1"></i>
+                                Produtos desta categoria serão impressos automaticamente na impressora selecionada
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
                             <div class="form-check">
                                 <InputCheckbox class="form-check-input" @bind-Value="categoriaEditando!.Ativo" />
                                 <label class="form-check-label">Categoria ativa</label>
@@ -176,20 +190,20 @@
     {
         if (firstRender)
         {
-            await CarregarCategorias();
+            await CarregarDados();
             StateHasChanged();
         }
     }
 
-    private async Task CarregarCategorias()
+    private async Task CarregarDados()
     {
         try
         {
-            categorias = await Http.GetFromJsonAsync<List<CategoriaDto>>("http://localhost:5000/api/categorias") ?? new();
+            categorias = await Http.GetFromJsonAsync<List<CategoriaDto>>("api/categorias") ?? new();
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Erro ao carregar categorias: {ex.Message}");
+            Console.WriteLine($"Erro ao carregar dados: {ex.Message}");
         }
         finally
         {
@@ -229,20 +243,20 @@
             if (categoriaEditando.Id > 0)
             {
                 // Editar
-                var response = await Http.PutAsJsonAsync($"http://localhost:5000/api/categorias/{categoriaEditando.Id}", categoriaEditando);
+                var response = await Http.PutAsJsonAsync($"api/categorias/{categoriaEditando.Id}", categoriaEditando);
                 if (response.IsSuccessStatusCode)
                 {
-                    await CarregarCategorias();
+                    await CarregarDados();
                     FecharModal();
                 }
             }
             else
             {
                 // Criar
-                var response = await Http.PostAsJsonAsync("http://localhost:5000/api/categorias", categoriaEditando);
+                var response = await Http.PostAsJsonAsync("api/categorias", categoriaEditando);
                 if (response.IsSuccessStatusCode)
                 {
-                    await CarregarCategorias();
+                    await CarregarDados();
                     FecharModal();
                 }
             }
@@ -273,11 +287,11 @@
 
         try
         {
-            var response = await Http.DeleteAsync($"http://localhost:5000/api/categorias/{categoriaParaExcluir.Id}");
+            var response = await Http.DeleteAsync($"api/categorias/{categoriaParaExcluir.Id}");
             if (response.IsSuccessStatusCode)
             {
                 categoriaParaExcluir = null;
-                await CarregarCategorias();
+                await CarregarDados();
             }
         }
         catch (Exception ex)

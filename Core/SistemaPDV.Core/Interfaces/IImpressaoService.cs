@@ -17,6 +17,10 @@ namespace SistemaPDV.Core.Interfaces
         Task<bool> ReimprimirPedidoAsync(int pedidoId, int? impressoraId = null);
         Task<bool> ImprimirRelatorioAsync(string conteudoRelatorio, int? impressoraId = null);
         
+        // Impressão Multi-Área
+        Task<bool> ImprimirItemPorAreaAsync(int pedidoId, int itemId, int impressoraId);
+        Task<bool> ImprimirItemAsync(int pedidoId, int itemId);
+        
         // Fila de Impressão
         Task<IEnumerable<FilaImpressao>> ObterFilaImpressaoAsync();
         Task<bool> ProcessarFilaImpressaoAsync();

@@ -168,6 +168,11 @@
                                                 </td>
                                                 <td>
                                                     <div class="btn-group" role="group">
+                                                        <button class="btn btn-success btn-sm" 
+                                                                @onclick="() => CriarPedidoParaCliente(cliente.Id)"
+                                                                title="Criar Pedido">
+                                                            <i class="fas fa-plus-circle"></i>
+                                                        </button>
                                                         <button class="btn btn-outline-primary btn-sm" 
                                                                 @onclick="() => EditarCliente(cliente.Id)"
                                                                 title="Editar">
@@ -320,5 +325,11 @@
         {
             mensagemErro = "Erro ao excluir cliente: " + ex.Message;
         }
+    }
+
+    private void CriarPedidoParaCliente(int clienteId)
+    {
+        // Navegar para página de novo pedido com cliente pré-selecionado
+        Navigation.NavigateTo($"/pedidos/novo/{clienteId}");
     }
 }

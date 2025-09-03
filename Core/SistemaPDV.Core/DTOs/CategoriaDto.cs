@@ -15,6 +15,10 @@ namespace SistemaPDV.Core.DTOs
         
         public bool Ativo { get; set; } = true;
         public DateTime DataCriacao { get; set; } = DateTime.Now;
+        
+        // Impressão multi-área
+        public int? ImpressoraId { get; set; }
+        public string? ImpressoraNome { get; set; }
     }
     
     public class CategoriaCriacaoDto
@@ -25,6 +29,9 @@ namespace SistemaPDV.Core.DTOs
         
         [StringLength(500, ErrorMessage = "Descrição deve ter no máximo 500 caracteres")]
         public string? Descricao { get; set; }
+        
+        // Impressão multi-área
+        public int? ImpressoraId { get; set; }
     }
     
     public class CategoriaAtualizacaoDto
@@ -37,5 +44,8 @@ namespace SistemaPDV.Core.DTOs
         public string? Descricao { get; set; }
         
         public bool Ativo { get; set; } = true;
+        
+        // Impressão multi-área
+        public int? ImpressoraId { get; set; }
     }
 }

@@ -198,7 +198,7 @@
     {
         try
         {
-            categorias = await Http.GetFromJsonAsync<List<CategoriaDto>>("http://localhost:5000/api/categorias") ?? new();
+            categorias = await Http.GetFromJsonAsync<List<CategoriaDto>>("api/categorias") ?? new();
         }
         catch (Exception ex)
         {
@@ -216,7 +216,7 @@
 
         try
         {
-            var produtoCarregado = await Http.GetFromJsonAsync<ProdutoDto>($"http://localhost:5000/api/produtos/{Id.Value}");
+            var produtoCarregado = await Http.GetFromJsonAsync<ProdutoDto>($"api/produtos/{Id.Value}");
             if (produtoCarregado != null)
             {
                 produto = produtoCarregado;
@@ -249,7 +249,7 @@
             if (Id.HasValue && Id.Value > 0)
             {
                 // Editar produto existente
-                var response = await Http.PutAsJsonAsync($"http://localhost:5000/api/produtos/{Id.Value}", produto);
+                var response = await Http.PutAsJsonAsync($"api/produtos/{Id.Value}", produto);
                 if (response.IsSuccessStatusCode)
                 {
                     mensagemSucesso = "Produto atualizado com sucesso!";
@@ -273,7 +273,7 @@
                     CategoriaId = produto.CategoriaId
                 };
 
-                var response = await Http.PostAsJsonAsync("http://localhost:5000/api/produtos", novoProduto);
+                var response = await Http.PostAsJsonAsync("api/produtos", novoProduto);
                 if (response.IsSuccessStatusCode)
                 {
                     mensagemSucesso = "Produto criado com sucesso!";

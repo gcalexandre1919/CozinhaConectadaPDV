@@ -10,13 +10,19 @@ builder.Services.AddRazorComponents()
 // HTTP Client para API
 builder.Services.AddHttpClient<ClienteApiService>(client =>
 {
-    client.BaseAddress = new Uri("http://localhost:5000/"); // URL da API (porta corrigida)
+    client.BaseAddress = new Uri("http://localhost:5001/"); // URL da API padrão
+});
+
+// HTTP Client para autenticação (caso necessário em páginas de login/registro)
+builder.Services.AddHttpClient<IAuthWebService, AuthWebService>(client =>
+{
+    client.BaseAddress = new Uri("http://localhost:5001/");
 });
 
 // HTTP Client para pedidos
 builder.Services.AddHttpClient("Default", client =>
 {
-    client.BaseAddress = new Uri("http://localhost:5000/");
+    client.BaseAddress = new Uri("http://localhost:5001/");
 });
 
 var app = builder.Build();

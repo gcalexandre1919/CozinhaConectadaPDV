@@ -1,0 +1,115 @@
+@page "/login"
+@rendermode InteractiveServer
+@using SistemaPDV.Core.DTOs
+@using SistemaPDV.Web.Services
+@inject IAuthWebService AuthService
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Login - Sistema PDV</PageTitle>
+
+<div class="container-fluid vh-100 d-flex align-items-center justify-content-center bg-gradient" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+    <div class="row w-100 justify-content-center">
+        <div class="col-md-4">
+            <div class="card shadow-lg">
+                <div class="card-body p-5">
+                    <div class="text-center mb-4">
+                        <i class="fas fa-utensils fa-3x text-primary mb-3"></i>
+                        <h3 class="fw-bold">Cozinha Conectada</h3>
+                        <p class="text-muted">Sistema PDV para Restaurantes</p>
+                    </div>
+
+                    @if (!string.IsNullOrEmpty(mensagemErro))
+                    {
+                        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                            <i class="fas fa-exclamation-circle me-2"></i>@mensagemErro
+                            <button type="button" class="btn-close" @onclick="() => mensagemErro = string.Empty"></button>
+                        </div>
+                    }
+
+                    <form @onsubmit="@FazerLogin" @onsubmit:preventDefault="true">
+                        <div class="mb-3">
+                            <label for="email" class="form-label">Email</label>
+                            <div class="input-group">
+                                <span class="input-group-text">
+                                    <i class="fas fa-envelope"></i>
+                                </span>
+                                <input type="email" id="email" class="form-control" placeholder="seu@email.com" 
+                                       @bind="loginDto.Email" required />
+                            </div>
+                        </div>
+
+                        <div class="mb-4">
+                            <label for="senha" class="form-label">Senha</label>
+                            <div class="input-group">
+                                <span class="input-group-text">
+                                    <i class="fas fa-lock"></i>
+                                </span>
+                                <input type="password" id="senha" class="form-control" placeholder="Sua senha"
+                                       @bind="loginDto.Password" required />
+                            </div>
+                        </div>
+
+                        <div class="d-grid mb-3">
+                            <button type="submit" class="btn btn-primary btn-lg" disabled="@efetuandoLogin">
+                                @if (efetuandoLogin)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-2"></span>
+                                }
+                                <i class="fas fa-sign-in-alt me-2"></i>Entrar
+                            </button>
+                        </div>
+
+                        <div class="text-center">
+                            <p class="mb-0 text-muted">Novo por aqui?</p>
+                            <a href="/register" class="btn btn-link">
+                                <i class="fas fa-user-plus me-2"></i>Criar conta
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private LoginDto loginDto = new();
+    private bool efetuandoLogin = false;
+    private string mensagemErro = string.Empty;
+
+    private async Task FazerLogin()
+    {
+        if (string.IsNullOrWhiteSpace(loginDto.Email) || string.IsNullOrWhiteSpace(loginDto.Password))
+        {
+            mensagemErro = "Por favor, preencha todos os campos.";
+            return;
+        }
+
+        efetuandoLogin = true;
+        mensagemErro = string.Empty;
+
+        try
+        {
+            var resultado = await AuthService.LoginAsync(loginDto);
+            
+            if (resultado.Sucesso)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "Login realizado com sucesso!");
+                Navigation.NavigateTo("/");
+            }
+            else
+            {
+                mensagemErro = resultado.Erro ?? "Erro ao fazer login";
+            }
+        }
+        catch (Exception ex)
+        {
+            mensagemErro = $"Erro de conexão: {ex.Message}";
+        }
+        finally
+        {
+            efetuandoLogin = false;
+        }
+    }
+}

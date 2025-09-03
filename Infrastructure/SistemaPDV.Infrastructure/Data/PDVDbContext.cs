@@ -21,6 +21,7 @@ namespace SistemaPDV.Infrastructure.Data
         public DbSet<RelatorioVenda> RelatoriosVenda { get; set; }
         public DbSet<VendaProduto> VendaProdutos { get; set; }
         public DbSet<Restaurante> Restaurantes { get; set; }
+        public DbSet<ApplicationUser> Users { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -124,6 +125,12 @@ namespace SistemaPDV.Infrastructure.Data
                 entity.HasKey(e => e.Id);
                 entity.Property(e => e.Nome).IsRequired().HasMaxLength(100);
                 entity.Property(e => e.Descricao).HasMaxLength(500);
+                
+                // Relacionamento com Impressora (para impressão multi-área)
+                entity.HasOne(e => e.Impressora)
+                      .WithMany()
+                      .HasForeignKey(e => e.ImpressoraId)
+                      .OnDelete(DeleteBehavior.SetNull);
             });
 
             modelBuilder.Entity<Produto>(entity =>

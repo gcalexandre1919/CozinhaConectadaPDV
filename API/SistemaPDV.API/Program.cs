@@ -1,4 +1,7 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
 using SistemaPDV.Core.Interfaces;
 using SistemaPDV.Infrastructure.Data;
 using SistemaPDV.Infrastructure.Services;
@@ -14,10 +17,33 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddDbContext<PDVDbContext>(options =>
     options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
 
+// JWT Authentication
+var jwtKey = builder.Configuration["Jwt:Key"] ?? "ChaveSecretaMuitoSeguraParaJWT123456789";
+var key = Encoding.ASCII.GetBytes(jwtKey);
+
+builder.Services.AddAuthentication(x =>
+{
+    x.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    x.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(x =>
+{
+    x.RequireHttpsMetadata = false;
+    x.SaveToken = true;
+    x.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuerSigningKey = true,
+        IssuerSigningKey = new SymmetricSecurityKey(key),
+        ValidateIssuer = false,
+        ValidateAudience = false
+    };
+});
+
 // Services
 builder.Services.AddScoped<IPedidoService, PedidoService>();
 builder.Services.AddScoped<IImpressaoService, ImpressaoService>();
 builder.Services.AddScoped<IRelatorioService, RelatorioService>();
+builder.Services.AddScoped<AuthService>();
 
 // CORS
 builder.Services.AddCors(options =>
@@ -44,6 +70,7 @@ if (app.Environment.IsDevelopment())
 
 app.UseCors("AllowAll");
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();

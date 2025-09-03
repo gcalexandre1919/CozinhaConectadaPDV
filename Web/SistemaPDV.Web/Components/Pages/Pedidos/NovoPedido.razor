@@ -304,8 +304,8 @@
     {
         try
         {
-            var clientesTask = Http.GetFromJsonAsync<List<ClienteDto>>("http://localhost:5000/api/clientes");
-            var produtosTask = Http.GetFromJsonAsync<List<ProdutoDto>>("http://localhost:5000/api/produtos");
+            var clientesTask = Http.GetFromJsonAsync<List<ClienteDto>>("api/clientes");
+            var produtosTask = Http.GetFromJsonAsync<List<ProdutoDto>>("api/produtos");
             
             await Task.WhenAll(clientesTask, produtosTask);
             
@@ -334,7 +334,7 @@
         salvando = true;
         try
         {
-            var response = await Http.PostAsJsonAsync("http://localhost:5000/api/pedidos", novoPedido);
+            var response = await Http.PostAsJsonAsync("api/pedidos", novoPedido);
             if (response.IsSuccessStatusCode)
             {
                 pedidoAtual = await response.Content.ReadFromJsonAsync<PedidoDto>();
@@ -362,7 +362,7 @@
 
         try
         {
-            var response = await Http.PostAsJsonAsync($"http://localhost:5000/api/pedidos/{pedidoAtual.Id}/itens", novoItem);
+            var response = await Http.PostAsJsonAsync($"api/pedidos/{pedidoAtual.Id}/itens", novoItem);
             if (response.IsSuccessStatusCode)
             {
                 pedidoAtual = await response.Content.ReadFromJsonAsync<PedidoDto>();
@@ -382,7 +382,7 @@
 
         try
         {
-            var response = await Http.DeleteAsync($"http://localhost:5000/api/pedidos/{pedidoAtual.Id}/itens/{itemId}");
+            var response = await Http.DeleteAsync($"api/pedidos/{pedidoAtual.Id}/itens/{itemId}");
             if (response.IsSuccessStatusCode)
             {
                 pedidoAtual = await response.Content.ReadFromJsonAsync<PedidoDto>();
@@ -407,7 +407,7 @@
                 PercentualGarcomFinal = pedidoAtual.PercentualGarcom
             };
 
-            var response = await Http.PostAsJsonAsync($"http://localhost:5000/api/pedidos/{pedidoAtual.Id}/fechar-conta", fecharContaDto);
+            var response = await Http.PostAsJsonAsync($"api/pedidos/{pedidoAtual.Id}/fechar-conta", fecharContaDto);
             if (response.IsSuccessStatusCode)
             {
                 pedidoAtual = await response.Content.ReadFromJsonAsync<PedidoDto>();
@@ -427,7 +427,7 @@
 
         try
         {
-            var response = await Http.PostAsync($"http://localhost:5000/api/pedidos/{pedidoAtual.Id}/imprimir", null);
+            var response = await Http.PostAsync($"api/pedidos/{pedidoAtual.Id}/imprimir", null);
             if (response.IsSuccessStatusCode)
             {
                 await JSRuntime.InvokeVoidAsync("alert", "Pedido enviado para impressão!");
@@ -448,7 +448,7 @@
 
         try
         {
-            var response = await Http.PostAsync($"http://localhost:5000/api/pedidos/{pedidoAtual.Id}/cancelar", null);
+            var response = await Http.PostAsync($"api/pedidos/{pedidoAtual.Id}/cancelar", null);
             if (response.IsSuccessStatusCode)
             {
                 pedidoAtual = await response.Content.ReadFromJsonAsync<PedidoDto>();
