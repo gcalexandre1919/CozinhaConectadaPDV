@@ -1,0 +1,17 @@
+# Docker Compose para Oracle Cloud Always Free
+version: '3.8'
+
+services:
+  app:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:8080
+      - ConnectionStrings__DefaultConnection=Data Source=/app/data/SistemaPDV.db;Cache=Shared
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
+    mem_limit: 512m
+    cpus: 0.5
