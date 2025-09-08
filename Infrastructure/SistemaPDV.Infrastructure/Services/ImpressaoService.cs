@@ -11,80 +11,306 @@ namespace SistemaPDV.Infrastructure.Services
     {
         private readonly PDVDbContext _context;
         private readonly ILogger<ImpressaoService> _logger;
+        private readonly ICurrentUserService _currentUserService;
 
-        public ImpressaoService(PDVDbContext context, ILogger<ImpressaoService> logger)
+        public ImpressaoService(PDVDbContext context, ILogger<ImpressaoService> logger, ICurrentUserService currentUserService)
         {
             _context = context;
             _logger = logger;
+            _currentUserService = currentUserService;
         }
 
-        #region Gestão de Impressoras
+        #region Gestão de Impressoras - Padrão de Excelência
 
-        public async Task<IEnumerable<Impressora>> ObterImpressorasAsync()
-        {
-            return await _context.Impressoras
-                .Where(i => i.Ativa)
-                .OrderBy(i => i.Nome)
-                .ToListAsync();
-        }
-
-        public async Task<Impressora?> ObterImpressoraPorIdAsync(int id)
-        {
-            return await _context.Impressoras.FindAsync(id);
-        }
-
-        public async Task<Impressora> CadastrarImpressoraAsync(Impressora impressora)
-        {
-            impressora.DataCadastro = DateTime.Now;
-            impressora.Ativa = true;
-
-            _context.Impressoras.Add(impressora);
-            await _context.SaveChangesAsync();
-
-            return impressora;
-        }
-
-        public async Task<Impressora> AtualizarImpressoraAsync(Impressora impressora)
-        {
-            var impressoraExistente = await _context.Impressoras.FindAsync(impressora.Id);
-            if (impressoraExistente == null)
-                throw new ArgumentException("Impressora não encontrada");
-
-            impressoraExistente.Nome = impressora.Nome;
-            impressoraExistente.Caminho = impressora.Caminho;
-            impressoraExistente.Tipo = impressora.Tipo;
-            impressoraExistente.Ativa = impressora.Ativa;
-
-            await _context.SaveChangesAsync();
-            return impressoraExistente;
-        }
-
-        public async Task RemoverImpressoraAsync(int id)
-        {
-            var impressora = await _context.Impressoras.FindAsync(id);
-            if (impressora != null)
-            {
-                // Soft delete
-                impressora.Ativa = false;
-                await _context.SaveChangesAsync();
-            }
-        }
-
-        public async Task<bool> TestarImpressoraAsync(int id)
+        /// <summary>
+        /// Obter todas as impressoras ativas do restaurante com performance otimizada
+        /// </summary>
+        public async Task<IEnumerable<Impressora>> GetAllAsync()
         {
             try
             {
-                var impressora = await ObterImpressoraPorIdAsync(id);
-                if (impressora == null) return false;
+                var impressoras = await _context.Impressoras
+                    .AsNoTracking()
+                    .Where(i => i.Ativa)
+                    .OrderBy(i => i.Nome)
+                    .ToListAsync();
+
+                _logger.LogInformation("Obtidas {Count} impressoras ativas", impressoras.Count());
+
+                return impressoras;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao obter impressoras ativas");
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Obter impressora por ID com validação
+        /// </summary>
+        public async Task<Impressora?> GetByIdAsync(int id)
+        {
+            try
+            {
+                var impressora = await _context.Impressoras
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(i => i.Id == id);
+
+                if (impressora != null)
+                {
+                    _logger.LogInformation("Impressora {Id} obtida com sucesso", id);
+                }
+                else
+                {
+                    _logger.LogWarning("Impressora {Id} não encontrada", id);
+                }
+
+                return impressora;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao obter impressora {Id}", id);
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Criar nova impressora
+        /// </summary>
+        public async Task<Impressora> CreateAsync(Impressora impressora)
+        {
+            try
+            {
+                impressora.DataCadastro = DateTime.Now;
+                impressora.Ativa = true;
+
+                _context.Impressoras.Add(impressora);
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation("Impressora {Nome} criada com ID {Id}", impressora.Nome, impressora.Id);
+
+                return impressora;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao criar impressora {Nome}", impressora?.Nome);
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Atualizar impressora existente
+        /// </summary>
+        public async Task<Impressora> UpdateAsync(Impressora impressora)
+        {
+            try
+            {
+                var impressoraExistente = await _context.Impressoras
+                    .FirstOrDefaultAsync(i => i.Id == impressora.Id);
+                
+                if (impressoraExistente == null)
+                    throw new ArgumentException("Impressora não encontrada");
+
+                impressoraExistente.Nome = impressora.Nome;
+                impressoraExistente.Caminho = impressora.Caminho;
+                impressoraExistente.Tipo = impressora.Tipo;
+                impressoraExistente.Ativa = impressora.Ativa;
+                impressoraExistente.LarguraPapel = impressora.LarguraPapel;
+                impressoraExistente.CortarPapel = impressora.CortarPapel;
+                impressoraExistente.AbrirGaveta = impressora.AbrirGaveta;
+                impressoraExistente.Observacoes = impressora.Observacoes;
+
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation("Impressora {Id} atualizada com sucesso", impressora.Id);
+
+                return impressoraExistente;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao atualizar impressora {Id}", impressora?.Id);
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Remover impressora (soft delete)
+        /// </summary>
+        public async Task DeleteAsync(int id)
+        {
+            try
+            {
+                var impressora = await _context.Impressoras
+                    .FirstOrDefaultAsync(i => i.Id == id);
+                
+                if (impressora != null)
+                {
+                    // Soft delete
+                    impressora.Ativa = false;
+                    await _context.SaveChangesAsync();
+
+                    _logger.LogInformation("Impressora {Id} removida (soft delete)", id);
+                }
+                else
+                {
+                    _logger.LogWarning("Tentativa de remoção de impressora {Id} não encontrada", id);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao remover impressora {Id}", id);
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Testar funcionamento da impressora
+        /// </summary>
+        public async Task<bool> TestAsync(int id)
+        {
+            try
+            {
+                var impressora = await GetByIdAsync(id);
+                if (impressora == null) 
+                {
+                    _logger.LogWarning("Tentativa de teste de impressora {Id} não encontrada", id);
+                    return false;
+                }
 
                 var conteudoTeste = GerarConteudoTestePagina();
-                return await ImprimirConteudoAsync(conteudoTeste, impressora);
+                var resultado = await ImprimirConteudoAsync(conteudoTeste, impressora);
+
+                _logger.LogInformation("Teste de impressora {Id} - Resultado: {Resultado}", id, resultado);
+
+                return resultado;
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Erro ao testar impressora {Id}", id);
                 return false;
             }
+        }
+
+        /// <summary>
+        /// Verificar se impressora existe
+        /// </summary>
+        public async Task<bool> ExistsAsync(int id)
+        {
+            try
+            {
+                return await _context.Impressoras
+                    .AnyAsync(i => i.Id == id);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao verificar existência da impressora {Id}", id);
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Buscar impressoras por termo (nome, caminho, etc.)
+        /// </summary>
+        public async Task<IEnumerable<Impressora>> SearchAsync(string term)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(term))
+                    return new List<Impressora>();
+                
+                var impressoras = await _context.Impressoras
+                    .AsNoTracking()
+                    .Where(i => i.Ativa &&
+                               (i.Nome.ToLower().Contains(term.ToLower()) ||
+                                i.Caminho.ToLower().Contains(term.ToLower()) ||
+                                (i.Observacoes != null && i.Observacoes.ToLower().Contains(term.ToLower()))))
+                    .OrderBy(i => i.Nome)
+                    .ToListAsync();
+
+                _logger.LogInformation("Busca por '{Termo}' retornou {Count} impressoras", 
+                    term, impressoras.Count());
+
+                return impressoras;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao buscar impressoras por termo: {Termo}", term);
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Obter apenas impressoras ativas
+        /// </summary>
+        public async Task<IEnumerable<Impressora>> GetActiveAsync()
+        {
+            return await GetAllAsync(); // Já filtra por ativas
+        }
+
+        /// <summary>
+        /// Obter impressoras por tipo
+        /// </summary>
+        public async Task<IEnumerable<Impressora>> GetByTypeAsync(TipoImpressora tipo)
+        {
+            try
+            {
+                var impressoras = await _context.Impressoras
+                    .AsNoTracking()
+                    .Where(i => i.Ativa && i.Tipo == tipo)
+                    .OrderBy(i => i.Nome)
+                    .ToListAsync();
+
+                _logger.LogInformation("Obtidas {Count} impressoras do tipo {Tipo}", 
+                    impressoras.Count(), tipo);
+
+                return impressoras;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao obter impressoras do tipo {Tipo}", tipo);
+                throw;
+            }
+        }
+
+        #endregion
+
+        #region Métodos Legados - Compatibilidade
+
+        [Obsolete("Use GetAllAsync() instead", false)]
+        public async Task<IEnumerable<Impressora>> ObterImpressorasAsync()
+        {
+            return await GetAllAsync();
+        }
+
+        [Obsolete("Use GetByIdAsync() instead", false)]
+        public async Task<Impressora?> ObterImpressoraPorIdAsync(int id)
+        {
+            return await GetByIdAsync(id);
+        }
+
+        [Obsolete("Use CreateAsync() instead", false)]
+        public async Task<Impressora> CadastrarImpressoraAsync(Impressora impressora)
+        {
+            return await CreateAsync(impressora);
+        }
+
+        [Obsolete("Use UpdateAsync() instead", false)]
+        public async Task<Impressora> AtualizarImpressoraAsync(Impressora impressora)
+        {
+            return await UpdateAsync(impressora);
+        }
+
+        [Obsolete("Use DeleteAsync() instead", false)]
+        public async Task RemoverImpressoraAsync(int id)
+        {
+            await DeleteAsync(id);
+        }
+
+        [Obsolete("Use TestAsync() instead", false)]
+        public async Task<bool> TestarImpressoraAsync(int id)
+        {
+            return await TestAsync(id);
         }
 
         #endregion

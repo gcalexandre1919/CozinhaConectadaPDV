@@ -1,250 +1,308 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SistemaPDV.Core.DTOs;
-using SistemaPDV.Infrastructure.Data;
-using Microsoft.EntityFrameworkCore;
+using SistemaPDV.Core.Interfaces;
 
-namespace SistemaPDV.API.Controllers
+namespace SistemaPDV.API.Controllers;
+
+/// <summary>
+/// Controller para operações de produtos com segurança multi-tenant
+/// </summary>
+[ApiController]
+[Route("api/[controller]")]
+[Authorize]
+public class ProdutosController : ControllerBase
 {
-    [ApiController]
-    [Route("api/[controller]")]
-    public class ProdutosController : ControllerBase
+    private readonly IProdutoService _produtoService;
+    private readonly ILogger<ProdutosController> _logger;
+
+    public ProdutosController(
+        IProdutoService produtoService,
+        ILogger<ProdutosController> logger)
     {
-        private readonly PDVDbContext _context;
-        private readonly ILogger<ProdutosController> _logger;
+        _produtoService = produtoService;
+        _logger = logger;
+    }
 
-        public ProdutosController(PDVDbContext context, ILogger<ProdutosController> logger)
+    /// <summary>
+    /// Obtém todos os produtos do restaurante atual
+    /// </summary>
+    [HttpGet]
+    public async Task<ActionResult<IEnumerable<ProdutoDto>>> GetAll()
+    {
+        try
         {
-            _context = context;
-            _logger = logger;
+            var produtos = await _produtoService.GetAllAsync();
+            return Ok(produtos);
         }
-
-        [HttpGet]
-        public async Task<ActionResult<IEnumerable<ProdutoDto>>> GetProdutos()
+        catch (Exception ex)
         {
-            try
-            {
-                var produtos = await _context.Produtos
-                    .Include(p => p.Categoria)
-                    .Select(p => new ProdutoDto
-                    {
-                        Id = p.Id,
-                        Nome = p.Nome,
-                        Descricao = p.Descricao,
-                        Preco = p.Preco,
-                        CategoriaId = p.CategoriaId,
-                        NomeCategoria = p.Categoria != null ? p.Categoria.Nome : "Sem categoria",
-                        CategoriaNome = p.Categoria != null ? p.Categoria.Nome : "Sem categoria",
-                        Codigo = $"PROD{p.Id:000}",
-                        QuantidadeEstoque = 50, // Valor padrão por enquanto
-                        Ativo = p.Ativo,
-                        DataCriacao = p.DataCriacao
-                    })
-                    .ToListAsync();
-
-                return Ok(produtos);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Erro ao buscar produtos");
-                return StatusCode(500, "Erro interno do servidor");
-            }
+            _logger.LogError(ex, "Erro ao recuperar produtos");
+            return StatusCode(500, new { message = "Erro interno do servidor" });
         }
+    }
 
-        [HttpGet("{id}")]
-        public async Task<ActionResult<ProdutoDto>> GetProduto(int id)
+    /// <summary>
+    /// Obtém um produto específico por ID
+    /// </summary>
+    [HttpGet("{id}")]
+    public async Task<ActionResult<ProdutoDto>> GetById(int id)
+    {
+        try
         {
-            try
-            {
-                var produto = await _context.Produtos
-                    .Include(p => p.Categoria)
-                    .Where(p => p.Id == id)
-                    .Select(p => new ProdutoDto
-                    {
-                        Id = p.Id,
-                        Nome = p.Nome,
-                        Descricao = p.Descricao,
-                        Preco = p.Preco,
-                        CategoriaId = p.CategoriaId,
-                        NomeCategoria = p.Categoria != null ? p.Categoria.Nome : "Sem categoria",
-                        CategoriaNome = p.Categoria != null ? p.Categoria.Nome : "Sem categoria",
-                        Codigo = $"PROD{p.Id:000}",
-                        QuantidadeEstoque = 50,
-                        Ativo = p.Ativo,
-                        DataCriacao = p.DataCriacao
-                    })
-                    .FirstOrDefaultAsync();
+            if (id <= 0)
+                return BadRequest(new { message = "ID inválido" });
 
-                if (produto == null)
-                    return NotFound();
+            var produto = await _produtoService.GetByIdAsync(id);
+            
+            if (produto == null)
+                return NotFound(new { message = "Produto não encontrado" });
 
-                return Ok(produto);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Erro ao buscar produto {Id}", id);
-                return StatusCode(500, "Erro interno do servidor");
-            }
+            return Ok(produto);
         }
-
-        [HttpPost]
-        public async Task<ActionResult<ProdutoDto>> CreateProduto(ProdutoCriacaoDto produtoDto)
+        catch (Exception ex)
         {
-            try
-            {
-                var produto = new SistemaPDV.Core.Entities.Produto
-                {
-                    Nome = produtoDto.Nome,
-                    Descricao = produtoDto.Descricao,
-                    Preco = produtoDto.Preco,
-                    CategoriaId = produtoDto.CategoriaId,
-                    Ativo = true,
-                    DataCriacao = DateTime.Now
-                };
-
-                _context.Produtos.Add(produto);
-                await _context.SaveChangesAsync();
-
-                var produtoRetorno = new ProdutoDto
-                {
-                    Id = produto.Id,
-                    Nome = produto.Nome,
-                    Descricao = produto.Descricao,
-                    Preco = produto.Preco,
-                    CategoriaId = produto.CategoriaId,
-                    Codigo = $"PROD{produto.Id:000}",
-                    QuantidadeEstoque = 50,
-                    Ativo = produto.Ativo,
-                    DataCriacao = produto.DataCriacao
-                };
-
-                return CreatedAtAction(nameof(GetProduto), new { id = produto.Id }, produtoRetorno);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Erro ao criar produto");
-                return StatusCode(500, "Erro interno do servidor");
-            }
+            _logger.LogError(ex, "Erro ao recuperar produto {ProdutoId}", id);
+            return StatusCode(500, new { message = "Erro interno do servidor" });
         }
+    }
 
-        [HttpPut("{id}")]
-        public async Task<ActionResult<ProdutoDto>> UpdateProduto(int id, ProdutoDto produtoDto)
+    /// <summary>
+    /// Obtém produtos por categoria
+    /// </summary>
+    [HttpGet("categoria/{categoriaId}")]
+    public async Task<ActionResult<IEnumerable<ProdutoDto>>> GetByCategoria(int categoriaId)
+    {
+        try
         {
-            try
-            {
-                var produto = await _context.Produtos.FindAsync(id);
-                if (produto == null)
-                    return NotFound();
+            if (categoriaId <= 0)
+                return BadRequest(new { message = "ID da categoria inválido" });
 
-                produto.Nome = produtoDto.Nome;
-                produto.Descricao = produtoDto.Descricao;
-                produto.Preco = produtoDto.Preco;
-                produto.CategoriaId = produtoDto.CategoriaId;
-                produto.Ativo = produtoDto.Ativo;
-
-                await _context.SaveChangesAsync();
-
-                var produtoRetorno = new ProdutoDto
-                {
-                    Id = produto.Id,
-                    Nome = produto.Nome,
-                    Descricao = produto.Descricao,
-                    Preco = produto.Preco,
-                    CategoriaId = produto.CategoriaId,
-                    Codigo = $"PROD{produto.Id:000}",
-                    QuantidadeEstoque = 50,
-                    Ativo = produto.Ativo,
-                    DataCriacao = produto.DataCriacao
-                };
-
-                return Ok(produtoRetorno);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Erro ao atualizar produto {Id}", id);
-                return StatusCode(500, "Erro interno do servidor");
-            }
+            var produtos = await _produtoService.GetByCategoriaIdAsync(categoriaId);
+            return Ok(produtos);
         }
-
-        [HttpPut("{id}/status")]
-        public async Task<IActionResult> ToggleStatus(int id)
+        catch (Exception ex)
         {
-            try
-            {
-                var produto = await _context.Produtos.FindAsync(id);
-                if (produto == null)
-                    return NotFound();
-
-                produto.Ativo = !produto.Ativo;
-                await _context.SaveChangesAsync();
-
-                return NoContent();
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Erro ao alterar status do produto {Id}", id);
-                return StatusCode(500, "Erro interno do servidor");
-            }
+            _logger.LogError(ex, "Erro ao recuperar produtos da categoria {CategoriaId}", categoriaId);
+            return StatusCode(500, new { message = "Erro interno do servidor" });
         }
+    }
 
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteProduto(int id)
+    /// <summary>
+    /// Obtém apenas produtos ativos
+    /// </summary>
+    [HttpGet("ativos")]
+    public async Task<ActionResult<IEnumerable<ProdutoDto>>> GetAtivos()
+    {
+        try
         {
-            try
-            {
-                var produto = await _context.Produtos.FindAsync(id);
-                if (produto == null)
-                    return NotFound();
-
-                _context.Produtos.Remove(produto);
-                await _context.SaveChangesAsync();
-
-                return NoContent();
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Erro ao excluir produto {Id}", id);
-                return StatusCode(500, "Erro interno do servidor");
-            }
+            var produtos = await _produtoService.GetAtivosAsync();
+            return Ok(produtos);
         }
-
-        [HttpGet("buscar")]
-        public async Task<ActionResult<IEnumerable<ProdutoDto>>> BuscarProdutos([FromQuery] string termo)
+        catch (Exception ex)
         {
-            try
-            {
-                var query = _context.Produtos.Include(p => p.Categoria).AsQueryable();
+            _logger.LogError(ex, "Erro ao recuperar produtos ativos");
+            return StatusCode(500, new { message = "Erro interno do servidor" });
+        }
+    }
 
-                if (!string.IsNullOrWhiteSpace(termo))
-                {
-                    query = query.Where(p => 
-                        p.Nome.Contains(termo) || 
-                        (p.Descricao != null && p.Descricao.Contains(termo)));
-                }
+    /// <summary>
+    /// Busca produtos por nome
+    /// </summary>
+    [HttpGet("buscar")]
+    public async Task<ActionResult<IEnumerable<ProdutoDto>>> Search([FromQuery] string nome)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(nome))
+                return BadRequest(new { message = "Nome é obrigatório para busca" });
 
-                var produtos = await query
-                    .Select(p => new ProdutoDto
-                    {
-                        Id = p.Id,
-                        Nome = p.Nome,
-                        Descricao = p.Descricao,
-                        Preco = p.Preco,
-                        CategoriaId = p.CategoriaId,
-                        NomeCategoria = p.Categoria != null ? p.Categoria.Nome : "Sem categoria",
-                        CategoriaNome = p.Categoria != null ? p.Categoria.Nome : "Sem categoria",
-                        Codigo = $"PROD{p.Id:000}",
-                        QuantidadeEstoque = 50,
-                        Ativo = p.Ativo,
-                        DataCriacao = p.DataCriacao
-                    })
-                    .ToListAsync();
+            var produtos = await _produtoService.SearchByNameAsync(nome);
+            return Ok(produtos);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Erro ao buscar produtos por nome: {Nome}", nome);
+            return StatusCode(500, new { message = "Erro interno do servidor" });
+        }
+    }
 
-                return Ok(produtos);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Erro ao buscar produtos com termo: {Termo}", termo);
-                return StatusCode(500, "Erro interno do servidor");
-            }
+    /// <summary>
+    /// Obtém produtos com baixo estoque
+    /// </summary>
+    [HttpGet("baixo-estoque")]
+    public async Task<ActionResult<IEnumerable<ProdutoDto>>> GetBaixoEstoque()
+    {
+        try
+        {
+            var produtos = await _produtoService.GetBaixoEstoqueAsync();
+            return Ok(produtos);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Erro ao recuperar produtos com baixo estoque");
+            return StatusCode(500, new { message = "Erro interno do servidor" });
+        }
+    }
+
+    /// <summary>
+    /// Cria um novo produto
+    /// </summary>
+    [HttpPost]
+    public async Task<ActionResult<ProdutoDto>> Create([FromBody] ProdutoDto produtoDto)
+    {
+        try
+        {
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
+            var produto = await _produtoService.CreateAsync(produtoDto);
+            
+            return CreatedAtAction(
+                nameof(GetById),
+                new { id = produto.Id },
+                produto);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Erro ao criar produto");
+            return StatusCode(500, new { message = "Erro interno do servidor" });
+        }
+    }
+
+    /// <summary>
+    /// Atualiza um produto existente
+    /// </summary>
+    [HttpPut("{id}")]
+    public async Task<ActionResult<ProdutoDto>> Update(int id, [FromBody] ProdutoDto produtoDto)
+    {
+        try
+        {
+            if (id <= 0)
+                return BadRequest(new { message = "ID inválido" });
+
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
+            var produto = await _produtoService.UpdateAsync(id, produtoDto);
+            return Ok(produto);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Erro ao atualizar produto {ProdutoId}", id);
+            return StatusCode(500, new { message = "Erro interno do servidor" });
+        }
+    }
+
+    /// <summary>
+    /// Ativa/desativa um produto
+    /// </summary>
+    [HttpPatch("{id}/toggle-ativo")]
+    public async Task<ActionResult> ToggleAtivo(int id)
+    {
+        try
+        {
+            if (id <= 0)
+                return BadRequest(new { message = "ID inválido" });
+
+            var success = await _produtoService.ToggleAtivoAsync(id);
+            
+            if (!success)
+                return NotFound(new { message = "Produto não encontrado" });
+
+            return Ok(new { message = "Status do produto alterado com sucesso" });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Erro ao alterar status do produto {ProdutoId}", id);
+            return StatusCode(500, new { message = "Erro interno do servidor" });
+        }
+    }
+
+    /// <summary>
+    /// Atualiza estoque de um produto
+    /// </summary>
+    [HttpPatch("{id}/estoque")]
+    public async Task<ActionResult> UpdateEstoque(int id, [FromBody] decimal novoEstoque)
+    {
+        try
+        {
+            if (id <= 0)
+                return BadRequest(new { message = "ID inválido" });
+
+            if (novoEstoque < 0)
+                return BadRequest(new { message = "Estoque não pode ser negativo" });
+
+            var success = await _produtoService.UpdateEstoqueAsync(id, novoEstoque);
+            
+            if (!success)
+                return NotFound(new { message = "Produto não encontrado" });
+
+            return Ok(new { message = "Estoque atualizado com sucesso" });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Erro ao atualizar estoque do produto {ProdutoId}", id);
+            return StatusCode(500, new { message = "Erro interno do servidor" });
+        }
+    }
+
+    /// <summary>
+    /// Exclui um produto
+    /// </summary>
+    [HttpDelete("{id}")]
+    public async Task<ActionResult> Delete(int id)
+    {
+        try
+        {
+            if (id <= 0)
+                return BadRequest(new { message = "ID inválido" });
+
+            var success = await _produtoService.DeleteAsync(id);
+            
+            if (!success)
+                return NotFound(new { message = "Produto não encontrado" });
+
+            return Ok(new { message = "Produto excluído com sucesso" });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Erro ao excluir produto {ProdutoId}", id);
+            return StatusCode(500, new { message = "Erro interno do servidor" });
+        }
+    }
+
+    /// <summary>
+    /// Verifica se um produto existe
+    /// </summary>
+    [HttpHead("{id}")]
+    public async Task<ActionResult> Exists(int id)
+    {
+        try
+        {
+            if (id <= 0)
+                return BadRequest();
+
+            var exists = await _produtoService.ExistsAsync(id);
+            
+            return exists ? Ok() : NotFound();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Erro ao verificar existência do produto {ProdutoId}", id);
+            return StatusCode(500);
         }
     }
 }

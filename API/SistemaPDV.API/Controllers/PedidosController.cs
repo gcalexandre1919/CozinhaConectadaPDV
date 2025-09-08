@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SistemaPDV.Core.DTOs;
 using SistemaPDV.Core.Entities;
@@ -5,29 +6,91 @@ using SistemaPDV.Core.Interfaces;
 
 namespace SistemaPDV.API.Controllers
 {
+    /// <summary>
+    /// Controller para operações de pedidos com segurança multi-tenant
+    /// </summary>
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize]
     public class PedidosController : ControllerBase
     {
         private readonly IPedidoService _pedidoService;
         private readonly ILogger<PedidosController> _logger;
+        private readonly ICurrentUserService _currentUserService;
 
-        public PedidosController(IPedidoService pedidoService, ILogger<PedidosController> logger)
+        public PedidosController(IPedidoService pedidoService, ILogger<PedidosController> logger, ICurrentUserService currentUserService)
         {
             _pedidoService = pedidoService;
             _logger = logger;
+            _currentUserService = currentUserService;
         }
 
         /// <summary>
-        /// Obter todos os pedidos
+        /// Obter todos os pedidos com paginação
         /// </summary>
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<PedidoDto>>> ObterTodos()
+        public async Task<ActionResult<PaginacaoResultadoDto<PedidoDto>>> ObterTodos([FromQuery] PaginacaoParametrosDto parametros)
         {
             try
             {
-                var pedidos = await _pedidoService.ObterTodosAsync();
-                return Ok(pedidos);
+                var todosPedidos = await _pedidoService.GetAllAsync();
+                var query = todosPedidos.AsQueryable();
+
+                // Aplicar filtro de pesquisa se fornecido
+                if (!string.IsNullOrWhiteSpace(parametros.Termo))
+                {
+                    query = query.Where(p => 
+                        (p.NomeCliente != null && p.NomeCliente.Contains(parametros.Termo, StringComparison.OrdinalIgnoreCase)) ||
+                        p.Id.ToString().Contains(parametros.Termo) ||
+                        (p.Observacoes != null && p.Observacoes.Contains(parametros.Termo, StringComparison.OrdinalIgnoreCase))
+                    );
+                }
+
+                // Aplicar ordenação
+                if (!string.IsNullOrWhiteSpace(parametros.OrdenarPor))
+                {
+                    switch (parametros.OrdenarPor.ToLower())
+                    {
+                        case "datacriacao":
+                            query = parametros.OrdemDecrescente ? query.OrderByDescending(p => p.DataCriacao) : query.OrderBy(p => p.DataCriacao);
+                            break;
+                        case "cliente":
+                            query = parametros.OrdemDecrescente ? query.OrderByDescending(p => p.NomeCliente) : query.OrderBy(p => p.NomeCliente);
+                            break;
+                        case "status":
+                            query = parametros.OrdemDecrescente ? query.OrderByDescending(p => p.Status) : query.OrderBy(p => p.Status);
+                            break;
+                        case "valortotal":
+                            query = parametros.OrdemDecrescente ? query.OrderByDescending(p => p.ValorTotal) : query.OrderBy(p => p.ValorTotal);
+                            break;
+                        default:
+                            query = query.OrderByDescending(p => p.DataCriacao);
+                            break;
+                    }
+                }
+                else
+                {
+                    query = query.OrderByDescending(p => p.DataCriacao);
+                }
+
+                // Contar total de itens
+                var totalItens = query.Count();
+
+                // Aplicar paginação
+                var pedidos = query
+                    .Skip((parametros.Pagina - 1) * parametros.TamanhoPagina)
+                    .Take(parametros.TamanhoPagina)
+                    .ToList();
+
+                var resultado = new PaginacaoResultadoDto<PedidoDto>
+                {
+                    Dados = pedidos,
+                    TotalItens = totalItens,
+                    PaginaAtual = parametros.Pagina,
+                    TamanhoPagina = parametros.TamanhoPagina
+                };
+
+                return Ok(resultado);
             }
             catch (Exception ex)
             {
@@ -44,7 +107,7 @@ namespace SistemaPDV.API.Controllers
         {
             try
             {
-                var pedido = await _pedidoService.ObterPorIdAsync(id);
+                var pedido = await _pedidoService.GetByIdAsync(id);
                 if (pedido == null)
                     return NotFound($"Pedido com ID {id} não encontrado");
 
@@ -68,7 +131,7 @@ namespace SistemaPDV.API.Controllers
                 if (!ModelState.IsValid)
                     return BadRequest(ModelState);
 
-                var pedido = await _pedidoService.CriarAsync(pedidoDto);
+                var pedido = await _pedidoService.CreateAsync(pedidoDto);
                 return CreatedAtAction(nameof(ObterPorId), new { id = pedido.Id }, pedido);
             }
             catch (ArgumentException ex)
@@ -93,7 +156,7 @@ namespace SistemaPDV.API.Controllers
                 if (!ModelState.IsValid)
                     return BadRequest(ModelState);
 
-                var pedido = await _pedidoService.AdicionarItemAsync(id, itemDto);
+                var pedido = await _pedidoService.AddItemAsync(id, itemDto);
                 return Ok(pedido);
             }
             catch (ArgumentException ex)
@@ -115,7 +178,7 @@ namespace SistemaPDV.API.Controllers
         {
             try
             {
-                var pedido = await _pedidoService.RemoverItemAsync(id, itemId);
+                var pedido = await _pedidoService.RemoveItemAsync(id, itemId);
                 return Ok(pedido);
             }
             catch (Exception ex)
@@ -136,7 +199,7 @@ namespace SistemaPDV.API.Controllers
                 if (!ModelState.IsValid)
                     return BadRequest(ModelState);
 
-                var pedido = await _pedidoService.AtualizarItemAsync(id, itemId, itemDto);
+                var pedido = await _pedidoService.UpdateItemAsync(id, itemId, itemDto);
                 return Ok(pedido);
             }
             catch (Exception ex)
@@ -158,7 +221,7 @@ namespace SistemaPDV.API.Controllers
                 if (!ModelState.IsValid)
                     return BadRequest(ModelState);
 
-                var pedido = await _pedidoService.FecharContaAsync(fecharContaDto);
+                var pedido = await _pedidoService.CloseAccountAsync(fecharContaDto);
                 return Ok(pedido);
             }
             catch (ArgumentException ex)
@@ -180,12 +243,37 @@ namespace SistemaPDV.API.Controllers
         {
             try
             {
-                var pedido = await _pedidoService.CancelarAsync(id);
+                var pedido = await _pedidoService.CancelAsync(id);
                 return Ok(pedido);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Erro ao cancelar pedido {Id}", id);
+                return StatusCode(500, "Erro interno do servidor");
+            }
+        }
+
+        /// <summary>
+        /// Alterar status do pedido
+        /// </summary>
+        [HttpPut("{id}/status")]
+        public async Task<ActionResult<PedidoDto>> AlterarStatus(int id, [FromBody] AlterarStatusDto alterarStatusDto)
+        {
+            try
+            {
+                if (!ModelState.IsValid)
+                    return BadRequest(ModelState);
+
+                var pedido = await _pedidoService.ChangeStatusAsync(id, alterarStatusDto.NovoStatus);
+                return Ok(pedido);
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao alterar status do pedido {Id}", id);
                 return StatusCode(500, "Erro interno do servidor");
             }
         }
@@ -198,7 +286,7 @@ namespace SistemaPDV.API.Controllers
         {
             try
             {
-                var sucesso = await _pedidoService.ImprimirAsync(id);
+                var sucesso = await _pedidoService.PrintAsync(id);
                 if (sucesso)
                     return Ok(new { mensagem = "Pedido enviado para impressão" });
                 else
@@ -219,7 +307,7 @@ namespace SistemaPDV.API.Controllers
         {
             try
             {
-                var pedidos = await _pedidoService.ObterEmAbertoAsync();
+                var pedidos = await _pedidoService.GetOpenOrdersAsync();
                 return Ok(pedidos);
             }
             catch (Exception ex)
@@ -239,7 +327,7 @@ namespace SistemaPDV.API.Controllers
         {
             try
             {
-                var pedidos = await _pedidoService.ObterPorPeriodoAsync(dataInicio, dataFim);
+                var pedidos = await _pedidoService.GetByPeriodAsync(dataInicio, dataFim);
                 return Ok(pedidos);
             }
             catch (Exception ex)
@@ -257,7 +345,7 @@ namespace SistemaPDV.API.Controllers
         {
             try
             {
-                var pedidos = await _pedidoService.ObterPorClienteAsync(clienteId);
+                var pedidos = await _pedidoService.GetByClientAsync(clienteId);
                 return Ok(pedidos);
             }
             catch (Exception ex)
@@ -275,7 +363,7 @@ namespace SistemaPDV.API.Controllers
         {
             try
             {
-                var pedidos = await _pedidoService.ObterPorTipoAsync(tipo);
+                var pedidos = await _pedidoService.GetByTypeAsync(tipo);
                 return Ok(pedidos);
             }
             catch (Exception ex)

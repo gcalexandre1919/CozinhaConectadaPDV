@@ -1,10 +1,8 @@
 @page "/login"
-@rendermode InteractiveServer
 @using SistemaPDV.Core.DTOs
 @using SistemaPDV.Web.Services
 @inject IAuthWebService AuthService
 @inject NavigationManager Navigation
-@inject IJSRuntime JSRuntime
 
 <PageTitle>Login - Sistema PDV</PageTitle>
 
@@ -21,9 +19,15 @@
 
                     @if (!string.IsNullOrEmpty(mensagemErro))
                     {
-                        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                        <div class="alert alert-danger">
                             <i class="fas fa-exclamation-circle me-2"></i>@mensagemErro
-                            <button type="button" class="btn-close" @onclick="() => mensagemErro = string.Empty"></button>
+                        </div>
+                    }
+
+                    @if (efetuandoLogin)
+                    {
+                        <div class="alert alert-info">
+                            <i class="fas fa-spinner fa-spin me-2"></i>Verificando credenciais...
                         </div>
                     }
 
@@ -35,6 +39,7 @@
                                     <i class="fas fa-envelope"></i>
                                 </span>
                                 <input type="email" id="email" class="form-control" placeholder="seu@email.com" 
+                                       autocomplete="email" 
                                        @bind="loginDto.Email" required />
                             </div>
                         </div>
@@ -46,6 +51,7 @@
                                     <i class="fas fa-lock"></i>
                                 </span>
                                 <input type="password" id="senha" class="form-control" placeholder="Sua senha"
+                                       autocomplete="current-password"
                                        @bind="loginDto.Password" required />
                             </div>
                         </div>
@@ -55,18 +61,37 @@
                                 @if (efetuandoLogin)
                                 {
                                     <span class="spinner-border spinner-border-sm me-2"></span>
+                                    <span>Entrando...</span>
                                 }
-                                <i class="fas fa-sign-in-alt me-2"></i>Entrar
+                                else
+                                {
+                                    <i class="fas fa-sign-in-alt me-2"></i>
+                                    <span>Entrar</span>
+                                }
                             </button>
                         </div>
-
-                        <div class="text-center">
-                            <p class="mb-0 text-muted">Novo por aqui?</p>
-                            <a href="/register" class="btn btn-link">
-                                <i class="fas fa-user-plus me-2"></i>Criar conta
-                            </a>
-                        </div>
                     </form>
+
+                    <div class="text-center">
+                        <div class="alert alert-info">
+                            <small>
+                                <strong>💡 Credenciais de Teste:</strong><br>
+                                Email: <code>admin@sistema.com</code><br>
+                                Senha: <code>123456</code>
+                            </small>
+                        </div>
+                        <a href="/register" class="btn btn-link">
+                            <i class="fas fa-user-plus me-2"></i>Criar nova conta
+                        </a>
+                    </div>
+
+                    <!-- Botão temporário até API funcionar -->
+                    <div class="d-grid mt-3">
+                        <a href="/dashboard" class="btn btn-warning">
+                            <i class="fas fa-tools me-2"></i>
+                            Acesso Temporário (API offline)
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>
@@ -74,42 +99,72 @@
 </div>
 
 @code {
-    private LoginDto loginDto = new();
-    private bool efetuandoLogin = false;
+    private LoginDto loginDto = new() { Email = "admin@sistema.com", Password = "123456" };
     private string mensagemErro = string.Empty;
+    private string mensagemSucesso = string.Empty;
+    private bool efetuandoLogin = false;
+    private bool apiOffline = false;
+
+    protected override void OnInitialized()
+    {
+        // Verificar se há mensagem de sucesso na URL
+        var uri = new Uri(Navigation.Uri);
+        var queryParams = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(uri.Query);
+        if (queryParams.ContainsKey("message"))
+        {
+            mensagemSucesso = queryParams["message"].FirstOrDefault() ?? "";
+        }
+    }
 
     private async Task FazerLogin()
     {
-        if (string.IsNullOrWhiteSpace(loginDto.Email) || string.IsNullOrWhiteSpace(loginDto.Password))
-        {
-            mensagemErro = "Por favor, preencha todos os campos.";
-            return;
-        }
-
-        efetuandoLogin = true;
-        mensagemErro = string.Empty;
-
         try
         {
+            efetuandoLogin = true;
+            mensagemErro = string.Empty;
+            mensagemSucesso = string.Empty;
+            apiOffline = false;
+            StateHasChanged();
+
+            // Validação básica
+            if (string.IsNullOrWhiteSpace(loginDto.Email) || string.IsNullOrWhiteSpace(loginDto.Password))
+            {
+                mensagemErro = "Por favor, preencha todos os campos.";
+                return;
+            }
+
+            // Tentar login na API
             var resultado = await AuthService.LoginAsync(loginDto);
             
             if (resultado.Sucesso)
             {
-                await JSRuntime.InvokeVoidAsync("alert", "Login realizado com sucesso!");
-                Navigation.NavigateTo("/");
+                mensagemSucesso = "Login realizado com sucesso! Redirecionando...";
+                StateHasChanged();
+                
+                // Aguardar um pouco e redirecionar
+                await Task.Delay(1000);
+                Navigation.NavigateTo("/dashboard", forceLoad: true);
             }
             else
             {
-                mensagemErro = resultado.Erro ?? "Erro ao fazer login";
+                mensagemErro = resultado.Erro ?? "Email ou senha incorretos";
             }
+        }
+        catch (HttpRequestException)
+        {
+            // API offline
+            apiOffline = true;
+            mensagemErro = "API está offline. Use o botão de acesso de emergência ou tente novamente mais tarde.";
         }
         catch (Exception ex)
         {
             mensagemErro = $"Erro de conexão: {ex.Message}";
+            apiOffline = true;
         }
         finally
         {
             efetuandoLogin = false;
+            StateHasChanged();
         }
     }
 }

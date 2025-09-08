@@ -17,6 +17,77 @@ namespace SistemaPDV.Infrastructure.Migrations
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "8.0.8");
 
+            modelBuilder.Entity("SistemaPDV.Core.Entities.ApplicationUser", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("BloqueadoAte")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT")
+                        .HasDefaultValue(new DateTime(2025, 9, 7, 22, 21, 27, 679, DateTimeKind.Utc).AddTicks(5504));
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(true);
+
+                    b.Property<bool>("IsAdmin")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(false);
+
+                    b.Property<DateTime?>("ModificadoEm")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Nome")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Observacoes")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PasswordHash")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("RestauranteId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("TentativasLoginFalhas")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("UltimoIpLogin")
+                        .HasMaxLength(45)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("UltimoLogin")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Email")
+                        .IsUnique();
+
+                    b.HasIndex("IsActive");
+
+                    b.HasIndex("RestauranteId");
+
+                    b.ToTable("ApplicationUsers");
+                });
+
             modelBuilder.Entity("SistemaPDV.Core.Entities.Categoria", b =>
                 {
                     b.Property<int>("Id")
@@ -33,12 +104,22 @@ namespace SistemaPDV.Infrastructure.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("TEXT");
 
+                    b.Property<int?>("ImpressoraId")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("Nome")
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("TEXT");
 
+                    b.Property<int>("RestauranteId")
+                        .HasColumnType("INTEGER");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("ImpressoraId");
+
+                    b.HasIndex("RestauranteId");
 
                     b.ToTable("Categorias");
                 });
@@ -292,6 +373,71 @@ namespace SistemaPDV.Infrastructure.Migrations
                     b.ToTable("Impressoras");
                 });
 
+            modelBuilder.Entity("SistemaPDV.Core.Entities.LoginAttempt", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("AdditionalInfo")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("AttemptedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("City")
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Country")
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("FailureReason")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("IpAddress")
+                        .IsRequired()
+                        .HasMaxLength(45)
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsBlocked")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Location")
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("Success")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("UserAgent")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("UserId")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AttemptedAt");
+
+                    b.HasIndex("Email");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("Email", "AttemptedAt");
+
+                    b.ToTable("LoginAttempts");
+                });
+
             modelBuilder.Entity("SistemaPDV.Core.Entities.Pedido", b =>
                 {
                     b.Property<int>("Id")
@@ -396,11 +542,21 @@ namespace SistemaPDV.Infrastructure.Migrations
                     b.Property<int>("CategoriaId")
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("Codigo")
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT");
+
                     b.Property<DateTime>("DataCriacao")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Descricao")
                         .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<decimal>("EstoqueAtual")
+                        .HasColumnType("TEXT");
+
+                    b.Property<decimal>("EstoqueMinimo")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Nome")
@@ -411,11 +567,70 @@ namespace SistemaPDV.Infrastructure.Migrations
                     b.Property<decimal>("Preco")
                         .HasColumnType("decimal(10,2)");
 
+                    b.Property<int>("RestauranteId")
+                        .HasColumnType("INTEGER");
+
                     b.HasKey("Id");
 
                     b.HasIndex("CategoriaId");
 
+                    b.HasIndex("RestauranteId");
+
                     b.ToTable("Produtos");
+                });
+
+            modelBuilder.Entity("SistemaPDV.Core.Entities.RefreshToken", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("ApplicationUserId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("IpAddress")
+                        .HasMaxLength(45)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("RevokedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("RevokedReason")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Token")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("UserAgent")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ApplicationUserId");
+
+                    b.HasIndex("ExpiresAt");
+
+                    b.HasIndex("Token")
+                        .IsUnique();
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("UserId", "RevokedAt");
+
+                    b.ToTable("RefreshTokens");
                 });
 
             modelBuilder.Entity("SistemaPDV.Core.Entities.RelatorioVenda", b =>
@@ -528,6 +743,35 @@ namespace SistemaPDV.Infrastructure.Migrations
                     b.ToTable("VendaProdutos");
                 });
 
+            modelBuilder.Entity("SistemaPDV.Core.Entities.ApplicationUser", b =>
+                {
+                    b.HasOne("SistemaPDV.Core.Entities.Restaurante", "Restaurante")
+                        .WithMany()
+                        .HasForeignKey("RestauranteId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Restaurante");
+                });
+
+            modelBuilder.Entity("SistemaPDV.Core.Entities.Categoria", b =>
+                {
+                    b.HasOne("SistemaPDV.Core.Entities.Impressora", "Impressora")
+                        .WithMany()
+                        .HasForeignKey("ImpressoraId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("SistemaPDV.Core.Entities.Restaurante", "Restaurante")
+                        .WithMany()
+                        .HasForeignKey("RestauranteId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Impressora");
+
+                    b.Navigation("Restaurante");
+                });
+
             modelBuilder.Entity("SistemaPDV.Core.Entities.Cliente", b =>
                 {
                     b.HasOne("SistemaPDV.Core.Entities.Restaurante", "Restaurante")
@@ -574,6 +818,16 @@ namespace SistemaPDV.Infrastructure.Migrations
                     b.Navigation("Pedido");
                 });
 
+            modelBuilder.Entity("SistemaPDV.Core.Entities.LoginAttempt", b =>
+                {
+                    b.HasOne("SistemaPDV.Core.Entities.ApplicationUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("SistemaPDV.Core.Entities.Pedido", b =>
                 {
                     b.HasOne("SistemaPDV.Core.Entities.Cliente", "Cliente")
@@ -615,12 +869,35 @@ namespace SistemaPDV.Infrastructure.Migrations
             modelBuilder.Entity("SistemaPDV.Core.Entities.Produto", b =>
                 {
                     b.HasOne("SistemaPDV.Core.Entities.Categoria", "Categoria")
-                        .WithMany()
+                        .WithMany("Produtos")
                         .HasForeignKey("CategoriaId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("SistemaPDV.Core.Entities.Restaurante", "Restaurante")
+                        .WithMany()
+                        .HasForeignKey("RestauranteId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.Navigation("Categoria");
+
+                    b.Navigation("Restaurante");
+                });
+
+            modelBuilder.Entity("SistemaPDV.Core.Entities.RefreshToken", b =>
+                {
+                    b.HasOne("SistemaPDV.Core.Entities.ApplicationUser", null)
+                        .WithMany("RefreshTokens")
+                        .HasForeignKey("ApplicationUserId");
+
+                    b.HasOne("SistemaPDV.Core.Entities.ApplicationUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("SistemaPDV.Core.Entities.VendaProduto", b =>
@@ -632,6 +909,16 @@ namespace SistemaPDV.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("Produto");
+                });
+
+            modelBuilder.Entity("SistemaPDV.Core.Entities.ApplicationUser", b =>
+                {
+                    b.Navigation("RefreshTokens");
+                });
+
+            modelBuilder.Entity("SistemaPDV.Core.Entities.Categoria", b =>
+                {
+                    b.Navigation("Produtos");
                 });
 
             modelBuilder.Entity("SistemaPDV.Core.Entities.Cliente", b =>

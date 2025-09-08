@@ -27,6 +27,7 @@
                             <i class="fas fa-search"></i>
                         </span>
                         <input type="text" class="form-control" placeholder="Buscar por nome, email, telefone, CPF ou CNPJ..."
+                               autocomplete="off"
                                @bind="termoBusca" @onkeypress="@(async (e) => { if (e.Key == "Enter") await BuscarClientes(); })" />
                         <button class="btn btn-outline-secondary" type="button" @onclick="BuscarClientes">
                             Buscar

@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace SistemaPDV.Core.Entities
 {
@@ -43,6 +44,21 @@ namespace SistemaPDV.Core.Entities
         public DateTime DataCadastro { get; set; } = DateTime.Now;
         
         public bool Ativo { get; set; } = true;
+
+        // Propriedades modernas para compatibilidade
+        [NotMapped]
+        public bool IsActive 
+        { 
+            get => Ativo; 
+            set => Ativo = value; 
+        }
+
+        [NotMapped]
+        public DateTime CriadoEm 
+        { 
+            get => DataCadastro; 
+            set => DataCadastro = value; 
+        }
         
         // Navigation properties
         public virtual ICollection<Pedido> Pedidos { get; set; } = new List<Pedido>();

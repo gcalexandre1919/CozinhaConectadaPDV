@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using SistemaPDV.Core.Attributes;
 
 namespace SistemaPDV.Core.DTOs
 {
@@ -18,9 +19,11 @@ namespace SistemaPDV.Core.DTOs
         [StringLength(20, ErrorMessage = "Telefone deve ter no máximo 20 caracteres")]
         public string? Telefone { get; set; }
         
+        [CPFValido(ErrorMessage = "CPF inválido")]
         [StringLength(11, ErrorMessage = "CPF deve ter no máximo 11 caracteres")]
         public string? CPF { get; set; }
         
+        [CNPJValido(ErrorMessage = "CNPJ inválido")]
         [StringLength(14, ErrorMessage = "CNPJ deve ter no máximo 14 caracteres")]
         public string? CNPJ { get; set; }
         
@@ -68,9 +71,11 @@ namespace SistemaPDV.Core.DTOs
         [StringLength(20, ErrorMessage = "Telefone deve ter no máximo 20 caracteres")]
         public string? Telefone { get; set; }
         
+        [CPFValido(ErrorMessage = "CPF inválido")]
         [StringLength(11, ErrorMessage = "CPF deve ter no máximo 11 caracteres")]
         public string? CPF { get; set; }
         
+        [CNPJValido(ErrorMessage = "CNPJ inválido")]
         [StringLength(14, ErrorMessage = "CNPJ deve ter no máximo 14 caracteres")]
         public string? CNPJ { get; set; }
         
@@ -114,9 +119,11 @@ namespace SistemaPDV.Core.DTOs
         [StringLength(20, ErrorMessage = "Telefone deve ter no máximo 20 caracteres")]
         public string? Telefone { get; set; }
         
+        [CPFValido(ErrorMessage = "CPF inválido")]
         [StringLength(11, ErrorMessage = "CPF deve ter no máximo 11 caracteres")]
         public string? CPF { get; set; }
         
+        [CNPJValido(ErrorMessage = "CNPJ inválido")]
         [StringLength(14, ErrorMessage = "CNPJ deve ter no máximo 14 caracteres")]
         public string? CNPJ { get; set; }
         

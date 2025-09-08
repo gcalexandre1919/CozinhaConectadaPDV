@@ -17,6 +17,10 @@ namespace SistemaPDV.Core.Entities
         
         public DateTime DataCriacao { get; set; } = DateTime.Now;
         
+        // Multi-tenant
+        public int RestauranteId { get; set; }
+        public virtual Restaurante? Restaurante { get; set; }
+        
         // Impressão multi-área
         public int? ImpressoraId { get; set; }
         public virtual Impressora? Impressora { get; set; }

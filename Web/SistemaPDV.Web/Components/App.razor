@@ -15,13 +15,29 @@
     <div id="app">
         <Router AppAssembly="@typeof(App).Assembly">
             <Found Context="routeData">
-                <RouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)" />
+                @{
+                    var isLoginPage = routeData.PageType?.Name == "Login" || routeData.PageType?.Name == "Register";
+                }
+                @if (isLoginPage)
+                {
+                    <RouteView RouteData="@routeData" DefaultLayout="@typeof(SistemaPDV.Web.Components.Layout.LoginLayout)" />
+                }
+                else
+                {
+                    <RouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)" />
+                }
                 <FocusOnNavigate RouteData="@routeData" Selector="h1" />
             </Found>
             <NotFound>
                 <PageTitle>Não encontrado</PageTitle>
                 <LayoutView Layout="@typeof(MainLayout)">
-                    <p role="alert">Desculpe, não há nada neste endereço.</p>
+                    <div class="container mt-5">
+                        <div class="text-center">
+                            <h1>404 - Página não encontrada</h1>
+                            <p>Desculpe, a página que você está procurando não existe.</p>
+                            <a href="/" class="btn btn-primary">Voltar ao início</a>
+                        </div>
+                    </div>
                 </LayoutView>
             </NotFound>
         </Router>
@@ -34,6 +50,7 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="js/blazor-config.js"></script>
     <script src="_framework/blazor.web.js"></script>
 </body>
 

@@ -1,49 +1,87 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using SistemaPDV.Core.DTOs;
-using SistemaPDV.Core.Entities;
-using SistemaPDV.Infrastructure.Data;
+using SistemaPDV.Core.Interfaces;
 
 namespace SistemaPDV.API.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize]
     public class ClientesController : ControllerBase
     {
-        private readonly PDVDbContext _context;
+        private readonly IClienteService _clienteService;
         private readonly ILogger<ClientesController> _logger;
 
-        public ClientesController(PDVDbContext context, ILogger<ClientesController> logger)
+        public ClientesController(IClienteService clienteService, ILogger<ClientesController> logger)
         {
-            _context = context;
+            _clienteService = clienteService;
             _logger = logger;
         }
 
         /// <summary>
-        /// Obtém todos os clientes ativos
+        /// Obtém todos os clientes ativos com paginação
         /// </summary>
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<ClienteDto>>> ObterTodos()
+        public async Task<ActionResult<PaginacaoResultadoDto<ClienteDto>>> ObterTodos([FromQuery] PaginacaoParametrosDto parametros)
         {
             try
             {
-                var clientes = await _context.Clientes
-                    .Where(c => c.Ativo)
-                    .Select(c => new ClienteDto
-                    {
-                        Id = c.Id,
-                        Nome = c.Nome,
-                        Email = c.Email,
-                        Telefone = c.Telefone,
-                        CPF = c.CPF,
-                        CNPJ = c.CNPJ,
-                        DataCadastro = c.DataCadastro,
-                        Ativo = c.Ativo,
-                        Observacoes = c.Observacoes
-                    })
-                    .ToListAsync();
+                _logger.LogInformation("Obtaining all clients with pagination for restaurant");
 
-                return Ok(clientes);
+                // Para o método clássico com paginação, vamos buscar todos e aplicar paginação no controlador
+                var todosClientes = await _clienteService.GetAllAsync();
+
+                // Aplicar filtro de pesquisa se fornecido
+                if (!string.IsNullOrWhiteSpace(parametros.Termo))
+                {
+                    todosClientes = await _clienteService.SearchAsync(parametros.Termo);
+                }
+
+                // Aplicar ordenação
+                var query = todosClientes.AsQueryable();
+                if (!string.IsNullOrWhiteSpace(parametros.OrdenarPor))
+                {
+                    switch (parametros.OrdenarPor.ToLower())
+                    {
+                        case "nome":
+                            query = parametros.OrdemDecrescente ? query.OrderByDescending(c => c.Nome) : query.OrderBy(c => c.Nome);
+                            break;
+                        case "email":
+                            query = parametros.OrdemDecrescente ? query.OrderByDescending(c => c.Email) : query.OrderBy(c => c.Email);
+                            break;
+                        case "datacadastro":
+                            query = parametros.OrdemDecrescente ? query.OrderByDescending(c => c.DataCadastro) : query.OrderBy(c => c.DataCadastro);
+                            break;
+                        default:
+                            query = query.OrderBy(c => c.Nome);
+                            break;
+                    }
+                }
+                else
+                {
+                    query = query.OrderBy(c => c.Nome);
+                }
+
+                // Contar total de itens
+                var totalItens = query.Count();
+
+                // Aplicar paginação
+                var clientes = query
+                    .Skip((parametros.Pagina - 1) * parametros.TamanhoPagina)
+                    .Take(parametros.TamanhoPagina)
+                    .ToList();
+
+                var resultado = new PaginacaoResultadoDto<ClienteDto>
+                {
+                    Dados = clientes,
+                    TotalItens = totalItens,
+                    PaginaAtual = parametros.Pagina,
+                    TamanhoPagina = parametros.TamanhoPagina
+                };
+
+                _logger.LogInformation("Successfully obtained {TotalItens} clients with pagination", totalItens);
+                return Ok(resultado);
             }
             catch (Exception ex)
             {
@@ -60,25 +98,17 @@ namespace SistemaPDV.API.Controllers
         {
             try
             {
-                var cliente = await _context.Clientes
-                    .Where(c => c.Id == id)
-                    .Select(c => new ClienteDto
-                    {
-                        Id = c.Id,
-                        Nome = c.Nome,
-                        Email = c.Email,
-                        Telefone = c.Telefone,
-                        CPF = c.CPF,
-                        CNPJ = c.CNPJ,
-                        DataCadastro = c.DataCadastro,
-                        Ativo = c.Ativo,
-                        Observacoes = c.Observacoes
-                    })
-                    .FirstOrDefaultAsync();
+                _logger.LogInformation("Obtaining client by ID: {ClientId}", id);
+
+                var cliente = await _clienteService.GetByIdAsync(id);
 
                 if (cliente == null)
+                {
+                    _logger.LogWarning("Client not found: {ClientId}", id);
                     return NotFound($"Cliente com ID {id} não encontrado");
+                }
 
+                _logger.LogInformation("Successfully obtained client: {ClientId} - {Nome}", id, cliente.Nome);
                 return Ok(cliente);
             }
             catch (Exception ex)
@@ -96,69 +126,23 @@ namespace SistemaPDV.API.Controllers
         {
             try
             {
-                _logger.LogInformation("Tentativa de criar cliente: {@ClienteDto}", clienteDto);
+                _logger.LogInformation("Attempting to create client: {@ClienteDto}", clienteDto);
                 
                 if (!ModelState.IsValid)
                 {
-                    _logger.LogWarning("ModelState inválido: {@ModelState}", ModelState);
+                    _logger.LogWarning("Invalid ModelState: {@ModelState}", ModelState);
                     return BadRequest(ModelState);
                 }
 
-                // Validações de duplicidade
-                if (!string.IsNullOrWhiteSpace(clienteDto.Email))
-                {
-                    var emailExiste = await _context.Clientes
-                        .AnyAsync(c => c.Email == clienteDto.Email);
-                    if (emailExiste)
-                        return BadRequest("Email já cadastrado para outro cliente");
-                }
+                var clienteResult = await _clienteService.CreateAsync(clienteDto);
 
-                if (!string.IsNullOrWhiteSpace(clienteDto.CPF))
-                {
-                    var cpfExiste = await _context.Clientes
-                        .AnyAsync(c => c.CPF == clienteDto.CPF);
-                    if (cpfExiste)
-                        return BadRequest("CPF já cadastrado para outro cliente");
-                }
-
-                if (!string.IsNullOrWhiteSpace(clienteDto.CNPJ))
-                {
-                    var cnpjExiste = await _context.Clientes
-                        .AnyAsync(c => c.CNPJ == clienteDto.CNPJ);
-                    if (cnpjExiste)
-                        return BadRequest("CNPJ já cadastrado para outro cliente");
-                }
-
-                var cliente = new Cliente
-                {
-                    Nome = clienteDto.Nome,
-                    Email = clienteDto.Email,
-                    Telefone = clienteDto.Telefone ?? string.Empty,
-                    CPF = clienteDto.CPF,
-                    CNPJ = clienteDto.CNPJ,
-                    DataCadastro = DateTime.Now,
-                    Ativo = true,
-                    Observacoes = clienteDto.Observacoes,
-                    RestauranteId = 1 // Por enquanto, usar um valor padrão
-                };
-
-                _context.Clientes.Add(cliente);
-                await _context.SaveChangesAsync();
-
-                var clienteResult = new ClienteDto
-                {
-                    Id = cliente.Id,
-                    Nome = cliente.Nome,
-                    Email = cliente.Email,
-                    Telefone = cliente.Telefone,
-                    CPF = cliente.CPF,
-                    CNPJ = cliente.CNPJ,
-                    DataCadastro = cliente.DataCadastro,
-                    Ativo = cliente.Ativo,
-                    Observacoes = cliente.Observacoes
-                };
-
-                return CreatedAtAction(nameof(ObterPorId), new { id = cliente.Id }, clienteResult);
+                _logger.LogInformation("Successfully created client: {ClientId} - {Nome}", clienteResult.Id, clienteResult.Nome);
+                return CreatedAtAction(nameof(ObterPorId), new { id = clienteResult.Id }, clienteResult);
+            }
+            catch (ArgumentException ex)
+            {
+                _logger.LogWarning(ex, "Validation error creating client: {Message}", ex.Message);
+                return BadRequest(ex.Message);
             }
             catch (Exception ex)
             {
@@ -175,63 +159,29 @@ namespace SistemaPDV.API.Controllers
         {
             try
             {
+                _logger.LogInformation("Attempting to update client: {ClientId}", id);
+
                 if (!ModelState.IsValid)
+                {
+                    _logger.LogWarning("Invalid ModelState for client update: {ClientId}", id);
                     return BadRequest(ModelState);
+                }
 
-                var cliente = await _context.Clientes.FindAsync(id);
-                if (cliente == null)
+                var clienteResult = await _clienteService.UpdateAsync(id, clienteDto);
+                
+                if (clienteResult == null)
+                {
+                    _logger.LogWarning("Client not found for update: {ClientId}", id);
                     return NotFound($"Cliente com ID {id} não encontrado");
-
-                // Validações de duplicidade (excluindo o próprio registro)
-                if (!string.IsNullOrWhiteSpace(clienteDto.Email))
-                {
-                    var emailExiste = await _context.Clientes
-                        .AnyAsync(c => c.Email == clienteDto.Email && c.Id != id);
-                    if (emailExiste)
-                        return BadRequest("Email já cadastrado para outro cliente");
                 }
 
-                if (!string.IsNullOrWhiteSpace(clienteDto.CPF))
-                {
-                    var cpfExiste = await _context.Clientes
-                        .AnyAsync(c => c.CPF == clienteDto.CPF && c.Id != id);
-                    if (cpfExiste)
-                        return BadRequest("CPF já cadastrado para outro cliente");
-                }
-
-                if (!string.IsNullOrWhiteSpace(clienteDto.CNPJ))
-                {
-                    var cnpjExiste = await _context.Clientes
-                        .AnyAsync(c => c.CNPJ == clienteDto.CNPJ && c.Id != id);
-                    if (cnpjExiste)
-                        return BadRequest("CNPJ já cadastrado para outro cliente");
-                }
-
-                // Atualizar propriedades
-                cliente.Nome = clienteDto.Nome;
-                cliente.Email = clienteDto.Email;
-                cliente.Telefone = clienteDto.Telefone ?? string.Empty;
-                cliente.CPF = clienteDto.CPF;
-                cliente.CNPJ = clienteDto.CNPJ;
-                cliente.Ativo = clienteDto.Ativo;
-                cliente.Observacoes = clienteDto.Observacoes;
-
-                await _context.SaveChangesAsync();
-
-                var clienteResult = new ClienteDto
-                {
-                    Id = cliente.Id,
-                    Nome = cliente.Nome,
-                    Email = cliente.Email,
-                    Telefone = cliente.Telefone,
-                    CPF = cliente.CPF,
-                    CNPJ = cliente.CNPJ,
-                    DataCadastro = cliente.DataCadastro,
-                    Ativo = cliente.Ativo,
-                    Observacoes = cliente.Observacoes
-                };
-
+                _logger.LogInformation("Successfully updated client: {ClientId} - {Nome}", id, clienteResult.Nome);
                 return Ok(clienteResult);
+            }
+            catch (ArgumentException ex)
+            {
+                _logger.LogWarning(ex, "Validation error updating client {ClientId}: {Message}", id, ex.Message);
+                return BadRequest(ex.Message);
             }
             catch (Exception ex)
             {
@@ -248,13 +198,17 @@ namespace SistemaPDV.API.Controllers
         {
             try
             {
-                var cliente = await _context.Clientes.FindAsync(id);
-                if (cliente == null)
+                _logger.LogInformation("Attempting to delete client: {ClientId}", id);
+
+                var sucesso = await _clienteService.DeleteAsync(id);
+                
+                if (!sucesso)
+                {
+                    _logger.LogWarning("Client not found for deletion: {ClientId}", id);
                     return NotFound($"Cliente com ID {id} não encontrado");
+                }
 
-                cliente.Ativo = false;
-                await _context.SaveChangesAsync();
-
+                _logger.LogInformation("Successfully deleted client: {ClientId}", id);
                 return NoContent();
             }
             catch (Exception ex)
@@ -268,38 +222,24 @@ namespace SistemaPDV.API.Controllers
         /// Busca clientes por termo (nome, email, telefone, CPF ou CNPJ)
         /// </summary>
         [HttpGet("buscar")]
-        public async Task<ActionResult<IEnumerable<ClienteDto>>> Buscar([FromQuery] string termo)
+        public async Task<ActionResult<PaginacaoResultadoDto<ClienteDto>>> Buscar([FromQuery] string termo, [FromQuery] PaginacaoParametrosDto? parametros = null)
         {
             try
             {
+                _logger.LogInformation("Searching clients with term: {Termo}", termo);
+
+                // Se não há termo, usar parâmetros padrão
                 if (string.IsNullOrWhiteSpace(termo))
                 {
-                    return await ObterTodos();
+                    parametros ??= new PaginacaoParametrosDto();
+                    return await ObterTodos(parametros);
                 }
 
-                var clientes = await _context.Clientes
-                    .Where(c => c.Ativo && (
-                        c.Nome.Contains(termo) ||
-                        (c.Email != null && c.Email.Contains(termo)) ||
-                        (c.Telefone != null && c.Telefone.Contains(termo)) ||
-                        (c.CPF != null && c.CPF.Contains(termo)) ||
-                        (c.CNPJ != null && c.CNPJ.Contains(termo))
-                    ))
-                    .Select(c => new ClienteDto
-                    {
-                        Id = c.Id,
-                        Nome = c.Nome,
-                        Email = c.Email,
-                        Telefone = c.Telefone,
-                        CPF = c.CPF,
-                        CNPJ = c.CNPJ,
-                        DataCadastro = c.DataCadastro,
-                        Ativo = c.Ativo,
-                        Observacoes = c.Observacoes
-                    })
-                    .ToListAsync();
-
-                return Ok(clientes);
+                // Usar parâmetros fornecidos ou padrão, mas com o termo de pesquisa
+                parametros ??= new PaginacaoParametrosDto();
+                parametros.Termo = termo;
+                
+                return await ObterTodos(parametros);
             }
             catch (Exception ex)
             {
@@ -319,8 +259,7 @@ namespace SistemaPDV.API.Controllers
                 if (string.IsNullOrWhiteSpace(email))
                     return BadRequest("Email é obrigatório");
 
-                var existe = await _context.Clientes
-                    .AnyAsync(c => c.Email == email && (idExcluir == null || c.Id != idExcluir));
+                var existe = await _clienteService.EmailExistsAsync(email, idExcluir);
 
                 return Ok(new { existe });
             }
@@ -342,8 +281,7 @@ namespace SistemaPDV.API.Controllers
                 if (string.IsNullOrWhiteSpace(cpf))
                     return BadRequest("CPF é obrigatório");
 
-                var existe = await _context.Clientes
-                    .AnyAsync(c => c.CPF == cpf && (idExcluir == null || c.Id != idExcluir));
+                var existe = await _clienteService.CpfExistsAsync(cpf, idExcluir);
 
                 return Ok(new { existe });
             }
@@ -365,8 +303,7 @@ namespace SistemaPDV.API.Controllers
                 if (string.IsNullOrWhiteSpace(cnpj))
                     return BadRequest("CNPJ é obrigatório");
 
-                var existe = await _context.Clientes
-                    .AnyAsync(c => c.CNPJ == cnpj && (idExcluir == null || c.Id != idExcluir));
+                var existe = await _clienteService.CnpjExistsAsync(cnpj, idExcluir);
 
                 return Ok(new { existe });
             }
@@ -376,5 +313,81 @@ namespace SistemaPDV.API.Controllers
                 return StatusCode(500, "Erro interno do servidor");
             }
         }
+
+        #region Modern API Endpoints (English)
+
+        /// <summary>
+        /// Get all active clients (modern endpoint)
+        /// </summary>
+        [HttpGet("all")]
+        public async Task<ActionResult<IEnumerable<ClienteDto>>> GetAll()
+        {
+            try
+            {
+                var clientes = await _clienteService.GetAllAsync();
+                return Ok(clientes);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting all clients");
+                return StatusCode(500, "Internal server error");
+            }
+        }
+
+        /// <summary>
+        /// Get recent clients (last 30 days)
+        /// </summary>
+        [HttpGet("recent")]
+        public async Task<ActionResult<IEnumerable<ClienteDto>>> GetRecent([FromQuery] int days = 30)
+        {
+            try
+            {
+                var clientes = await _clienteService.GetRecentClientsAsync(days);
+                return Ok(clientes);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting recent clients");
+                return StatusCode(500, "Internal server error");
+            }
+        }
+
+        /// <summary>
+        /// Search clients by term (modern endpoint)
+        /// </summary>
+        [HttpGet("search")]
+        public async Task<ActionResult<IEnumerable<ClienteDto>>> Search([FromQuery] string term)
+        {
+            try
+            {
+                var clientes = await _clienteService.SearchAsync(term);
+                return Ok(clientes);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error searching clients");
+                return StatusCode(500, "Internal server error");
+            }
+        }
+
+        /// <summary>
+        /// Check if client exists by ID
+        /// </summary>
+        [HttpGet("{id}/exists")]
+        public async Task<ActionResult<bool>> Exists(int id)
+        {
+            try
+            {
+                var exists = await _clienteService.ClientExistsAsync(id);
+                return Ok(new { exists });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error checking client existence");
+                return StatusCode(500, "Internal server error");
+            }
+        }
+
+        #endregion
     }
 }

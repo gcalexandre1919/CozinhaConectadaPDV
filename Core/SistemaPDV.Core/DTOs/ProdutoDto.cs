@@ -18,16 +18,32 @@ namespace SistemaPDV.Core.DTOs
         
         [Required(ErrorMessage = "Categoria é obrigatória")]
         public int CategoriaId { get; set; }
-        public string? NomeCategoria { get; set; }
-        public string? CategoriaNome { get; set; } // Alias para compatibilidade
+        public string CategoriaNome { get; set; } = string.Empty;
         
-        public string Codigo { get; set; } = string.Empty;
+        public string? Codigo { get; set; }
         
-        [Range(0, int.MaxValue, ErrorMessage = "Quantidade em estoque deve ser maior ou igual a zero")]
-        public int QuantidadeEstoque { get; set; }
+        [Range(0, double.MaxValue, ErrorMessage = "Estoque mínimo deve ser maior ou igual a zero")]
+        public decimal EstoqueMinimo { get; set; }
+        
+        [Range(0, double.MaxValue, ErrorMessage = "Estoque atual deve ser maior ou igual a zero")]
+        public decimal EstoqueAtual { get; set; }
         
         public bool Ativo { get; set; } = true;
+        
+        public int RestauranteId { get; set; }
+        
         public DateTime DataCriacao { get; set; } = DateTime.Now;
+        
+        // Propriedades calculadas
+        public bool BaixoEstoque => EstoqueAtual <= EstoqueMinimo;
+        public string StatusEstoque => BaixoEstoque ? "Baixo" : "Normal";
+        
+        // Propriedade de compatibilidade com versão anterior
+        public int QuantidadeEstoque 
+        { 
+            get => (int)EstoqueAtual; 
+            set => EstoqueAtual = value; 
+        }
     }
     
     public class ProdutoCriacaoDto
@@ -44,5 +60,15 @@ namespace SistemaPDV.Core.DTOs
         
         [Required(ErrorMessage = "Categoria é obrigatória")]
         public int CategoriaId { get; set; }
+        
+        public string? Codigo { get; set; }
+        
+        [Range(0, double.MaxValue, ErrorMessage = "Estoque mínimo deve ser maior ou igual a zero")]
+        public decimal EstoqueMinimo { get; set; }
+        
+        [Range(0, double.MaxValue, ErrorMessage = "Estoque atual deve ser maior ou igual a zero")]
+        public decimal EstoqueAtual { get; set; }
+        
+        public bool Ativo { get; set; } = true;
     }
 }

@@ -5,13 +5,21 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
-    .AddInteractiveServerComponents();
+    .AddInteractiveServerComponents()
+    .AddHubOptions(options =>
+    {
+        options.MaximumReceiveMessageSize = 10 * 1024 * 1024; // 10MB
+    });
 
-// HTTP Client para API
+// Registrar o handler de autenticação
+builder.Services.AddScoped<AuthenticationHandler>();
+
+// HTTP Client para API com autenticação automática
 builder.Services.AddHttpClient<ClienteApiService>(client =>
 {
     client.BaseAddress = new Uri("http://localhost:5001/"); // URL da API padrão
-});
+})
+.AddHttpMessageHandler<AuthenticationHandler>();
 
 // HTTP Client para autenticação (caso necessário em páginas de login/registro)
 builder.Services.AddHttpClient<IAuthWebService, AuthWebService>(client =>
@@ -19,11 +27,15 @@ builder.Services.AddHttpClient<IAuthWebService, AuthWebService>(client =>
     client.BaseAddress = new Uri("http://localhost:5001/");
 });
 
-// HTTP Client para pedidos
+// Serviço de contexto do usuário
+builder.Services.AddScoped<IUserContextService, UserContextService>();
+
+// HTTP Client para pedidos com autenticação automática
 builder.Services.AddHttpClient("Default", client =>
 {
     client.BaseAddress = new Uri("http://localhost:5001/");
-});
+})
+.AddHttpMessageHandler<AuthenticationHandler>();
 
 var app = builder.Build();
 
@@ -42,6 +54,7 @@ app.UseStaticFiles();
 app.UseAntiforgery();
 
 app.MapRazorComponents<App>()
-    .AddInteractiveServerRenderMode();
+    .AddInteractiveServerRenderMode()
+    .AllowAnonymous();
 
 app.Run();

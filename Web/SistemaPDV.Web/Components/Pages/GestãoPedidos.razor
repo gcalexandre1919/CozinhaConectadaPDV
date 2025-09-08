@@ -1,5 +1,5 @@
 @page "/pedidos"
-@inject HttpClient Http
+@inject IHttpClientFactory HttpClientFactory
 @inject NavigationManager Navigation
 @inject IJSRuntime JSRuntime
 
@@ -19,7 +19,7 @@
             <div class="row g-3">
                 <div class="col-md-3">
                     <label class="form-label">Status</label>
-                    <select class="form-select" @bind="filtroStatus" @bind:after="FiltrarPedidos">
+                    <select class="form-select" @bind="filtroStatus">
                         <option value="">Todos</option>
                         <option value="@StatusPedido.Aberto">Aberto</option>
                         <option value="@StatusPedido.Preparando">Preparando</option>
@@ -31,20 +31,28 @@
                 </div>
                 <div class="col-md-3">
                     <label class="form-label">Tipo</label>
-                    <select class="form-select" @bind="filtroTipo" @bind:after="FiltrarPedidos">
+                    <select class="form-select" @bind="filtroTipo">
                         <option value="">Todos</option>
                         <option value="@TipoPedido.Retirada">Retirada</option>
                         <option value="@TipoPedido.Entrega">Entrega</option>
                         <option value="@TipoPedido.RefeicaoNoLocal">Refeição no Local</option>
                     </select>
                 </div>
-                <div class="col-md-3">
+                <div class="col-md-2">
                     <label class="form-label">Data Início</label>
-                    <input type="date" class="form-control" @bind="dataInicio" @bind:after="FiltrarPedidos" />
+                    <input type="date" class="form-control" @bind="dataInicio" />
                 </div>
-                <div class="col-md-3">
+                <div class="col-md-2">
                     <label class="form-label">Data Fim</label>
-                    <input type="date" class="form-control" @bind="dataFim" @bind:after="FiltrarPedidos" />
+                    <input type="date" class="form-control" @bind="dataFim" />
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">&nbsp;</label>
+                    <div class="d-grid">
+                        <button class="btn btn-primary" @onclick="FiltrarPedidos">
+                            <i class="fas fa-search me-1"></i> Filtrar
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -146,6 +154,9 @@
                                         </button>
                                         @if (pedido.Status == StatusPedido.Aberto)
                                         {
+                                            <button class="btn btn-outline-warning" @onclick="() => AlterarStatus(pedido.Id, StatusPedido.Preparando)">
+                                                <i class="fas fa-play"></i>
+                                            </button>
                                             @if (pedido.Tipo == TipoPedido.RefeicaoNoLocal)
                                             {
                                                 <button class="btn btn-outline-warning" @onclick="() => FecharConta(pedido.Id)">
@@ -154,6 +165,18 @@
                                             }
                                             <button class="btn btn-outline-danger" @onclick="() => CancelarPedido(pedido.Id)">
                                                 <i class="fas fa-times"></i>
+                                            </button>
+                                        }
+                                        @if (pedido.Status == StatusPedido.Preparando)
+                                        {
+                                            <button class="btn btn-outline-success" @onclick="() => AlterarStatus(pedido.Id, StatusPedido.Pronto)">
+                                                <i class="fas fa-check"></i>
+                                            </button>
+                                        }
+                                        @if (pedido.Status == StatusPedido.Pronto)
+                                        {
+                                            <button class="btn btn-outline-primary" @onclick="() => AlterarStatus(pedido.Id, StatusPedido.Entregue)">
+                                                <i class="fas fa-truck"></i>
                                             </button>
                                         }
                                     </div>
@@ -213,7 +236,8 @@
     {
         try
         {
-            pedidos = await Http.GetFromJsonAsync<List<PedidoDto>>("api/pedidos") ?? new();
+            var httpClient = HttpClientFactory.CreateClient("Default");
+            pedidos = await httpClient.GetFromJsonAsync<List<PedidoDto>>("api/pedidos") ?? new();
         }
         catch (Exception ex)
         {
@@ -278,7 +302,8 @@
     {
         try
         {
-            var response = await Http.PostAsync($"api/pedidos/{pedidoId}/imprimir", null);
+            var httpClient = HttpClientFactory.CreateClient("Default");
+            var response = await httpClient.PostAsync($"api/pedidos/{pedidoId}/imprimir", null);
             if (response.IsSuccessStatusCode)
             {
                 await JSRuntime.InvokeVoidAsync("alert", "Pedido enviado para impressão!");
@@ -294,8 +319,9 @@
     {
         try
         {
+            var httpClient = HttpClientFactory.CreateClient("Default");
             var fecharContaDto = new FecharContaDto { PedidoId = pedidoId };
-            var response = await Http.PostAsJsonAsync($"api/pedidos/{pedidoId}/fechar-conta", fecharContaDto);
+            var response = await httpClient.PostAsJsonAsync($"api/pedidos/{pedidoId}/fechar-conta", fecharContaDto);
             
             if (response.IsSuccessStatusCode)
             {
@@ -319,7 +345,8 @@
 
         try
         {
-            var response = await Http.PostAsync($"api/pedidos/{pedidoId}/cancelar", null);
+            var httpClient = HttpClientFactory.CreateClient("Default");
+            var response = await httpClient.PostAsync($"api/pedidos/{pedidoId}/cancelar", null);
             if (response.IsSuccessStatusCode)
             {
                 await JSRuntime.InvokeVoidAsync("alert", "Pedido cancelado!");
@@ -332,6 +359,34 @@
         catch (Exception ex)
         {
             await JSRuntime.InvokeVoidAsync("alert", $"Erro ao cancelar: {ex.Message}");
+        }
+    }
+
+    private async Task AlterarStatus(int pedidoId, StatusPedido novoStatus)
+    {
+        try
+        {
+            var httpClient = HttpClientFactory.CreateClient("Default");
+            var alterarStatusDto = new { NovoStatus = novoStatus };
+            var response = await httpClient.PutAsJsonAsync($"api/pedidos/{pedidoId}/status", alterarStatusDto);
+            
+            if (response.IsSuccessStatusCode)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", $"Status alterado para {ObterDescricaoStatus(novoStatus)}!");
+                await CarregarPedidos();
+                CalcularEstatisticas();
+                FiltrarPedidos();
+                StateHasChanged();
+            }
+            else
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                await JSRuntime.InvokeVoidAsync("alert", $"Erro ao alterar status: {errorContent}");
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Erro ao alterar status: {ex.Message}");
         }
     }
 

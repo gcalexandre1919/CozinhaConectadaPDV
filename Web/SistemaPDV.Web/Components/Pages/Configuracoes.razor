@@ -1,0 +1,131 @@
+@page "/configuracoes"
+@rendermode InteractiveServer
+@using Microsoft.AspNetCore.Components.Web
+
+<PageTitle>Configurações - Sistema PDV</PageTitle>
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="fas fa-cog me-2"></i>Configurações</h2>
+        <button class="btn btn-primary" disabled>
+            <i class="fas fa-save me-2"></i>Salvar
+        </button>
+    </div>
+
+    <div class="row">
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-store me-2"></i>Dados do Restaurante</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label">Nome do Restaurante</label>
+                        <input type="text" class="form-control" placeholder="Nome do seu restaurante" disabled>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">CNPJ</label>
+                        <input type="text" class="form-control" placeholder="00.000.000/0000-00" disabled>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Endereço</label>
+                        <input type="text" class="form-control" placeholder="Endereço completo" disabled>
+                    </div>
+                    <small class="text-muted">Funcionalidade em desenvolvimento</small>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-print me-2"></i>Configurações de Impressão</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label">Impressora Padrão</label>
+                        <select class="form-select" disabled>
+                            <option>Selecione uma impressora</option>
+                        </select>
+                    </div>
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" disabled>
+                        <label class="form-check-label">
+                            Imprimir automaticamente os pedidos
+                        </label>
+                    </div>
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" disabled>
+                        <label class="form-check-label">
+                            Abrir gaveta automaticamente
+                        </label>
+                    </div>
+                    <small class="text-muted">Funcionalidade em desenvolvimento</small>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-percentage me-2"></i>Taxas e Valores</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label">Taxa de Entrega Padrão (R$)</label>
+                        <input type="number" class="form-control" placeholder="0,00" step="0.01" disabled>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Percentual Garçom Padrão (%)</label>
+                        <input type="number" class="form-control" placeholder="10" step="0.1" disabled>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Valor Mínimo para Entrega (R$)</label>
+                        <input type="number" class="form-control" placeholder="0,00" step="0.01" disabled>
+                    </div>
+                    <small class="text-muted">Funcionalidade em desenvolvimento</small>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-palette me-2"></i>Personalização</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label">Tema</label>
+                        <select class="form-select" disabled>
+                            <option>Tema Claro</option>
+                            <option>Tema Escuro</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Logo do Restaurante</label>
+                        <input type="file" class="form-control" accept="image/*" disabled>
+                    </div>
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" disabled>
+                        <label class="form-check-label">
+                            Exibir logo nas impressões
+                        </label>
+                    </div>
+                    <small class="text-muted">Funcionalidade em desenvolvimento</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12">
+            <div class="alert alert-warning">
+                <h5><i class="fas fa-exclamation-triangle me-2"></i>Configurações em Desenvolvimento</h5>
+                <p class="mb-0">
+                    As configurações do sistema estão sendo desenvolvidas e estarão disponíveis em breve.
+                    Por enquanto, o sistema utiliza configurações padrão.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,80 @@
+@page "/relatorios"
+@rendermode InteractiveServer
+@using Microsoft.AspNetCore.Components.Web
+
+<PageTitle>Relatórios - Sistema PDV</PageTitle>
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="fas fa-chart-bar me-2"></i>Relatórios</h2>
+        <button class="btn btn-primary" disabled>
+            <i class="fas fa-download me-2"></i>Exportar
+        </button>
+    </div>
+
+    <div class="row">
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-chart-line me-2"></i>Vendas por Período</h5>
+                </div>
+                <div class="card-body text-center">
+                    <i class="fas fa-chart-line fa-4x text-primary mb-3"></i>
+                    <h6 class="text-muted">Em Desenvolvimento</h6>
+                    <p class="text-muted">Relatório de vendas por dia, semana, mês</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-box me-2"></i>Produtos Mais Vendidos</h5>
+                </div>
+                <div class="card-body text-center">
+                    <i class="fas fa-box fa-4x text-success mb-3"></i>
+                    <h6 class="text-muted">Em Desenvolvimento</h6>
+                    <p class="text-muted">Ranking de produtos por quantidade vendida</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-users me-2"></i>Clientes Frequentes</h5>
+                </div>
+                <div class="card-body text-center">
+                    <i class="fas fa-users fa-4x text-info mb-3"></i>
+                    <h6 class="text-muted">Em Desenvolvimento</h6>
+                    <p class="text-muted">Clientes que mais fazem pedidos</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-clock me-2"></i>Horários de Pico</h5>
+                </div>
+                <div class="card-body text-center">
+                    <i class="fas fa-clock fa-4x text-warning mb-3"></i>
+                    <h6 class="text-muted">Em Desenvolvimento</h6>
+                    <p class="text-muted">Análise de horários com mais pedidos</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12">
+            <div class="alert alert-info">
+                <h5><i class="fas fa-info-circle me-2"></i>Relatórios em Desenvolvimento</h5>
+                <p class="mb-0">
+                    Os relatórios estão sendo desenvolvidos e estarão disponíveis em breve com:
+                    gráficos interativos, exportação em PDF/Excel, filtros avançados e muito mais.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>

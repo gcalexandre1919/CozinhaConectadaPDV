@@ -1,6 +1,8 @@
 @using Microsoft.AspNetCore.Components.Web
 @namespace SistemaPDV.Web.Components
 @inherits LayoutComponentBase
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
 
 <div class="page">
     <div class="sidebar">
@@ -64,10 +66,10 @@
             <div class="d-flex justify-content-between align-items-center">
                 <h1 class="text-primary mb-0">Sistema PDV</h1>
                 <div>
-                    <button class="btn btn-outline-primary btn-sm me-2">
+                    <button class="btn btn-outline-primary btn-sm me-2" @onclick="AbrirPerfil">
                         <i class="fas fa-user me-1"></i> Perfil
                     </button>
-                    <button class="btn btn-outline-danger btn-sm">
+                    <button class="btn btn-outline-danger btn-sm" @onclick="Sair">
                         <i class="fas fa-sign-out-alt me-1"></i> Sair
                     </button>
                 </div>
@@ -79,6 +81,27 @@
         </article>
     </main>
 </div>
+
+@code {
+    private async Task AbrirPerfil()
+    {
+        await JSRuntime.InvokeVoidAsync("alert", "Funcionalidade de perfil em desenvolvimento!");
+    }
+
+    private async Task Sair()
+    {
+        var confirmar = await JSRuntime.InvokeAsync<bool>("confirm", "Deseja realmente sair do sistema?");
+        if (confirmar)
+        {
+            // Limpar dados de autenticação (localStorage, sessionStorage, etc.)
+            await JSRuntime.InvokeVoidAsync("localStorage.clear");
+            await JSRuntime.InvokeVoidAsync("sessionStorage.clear");
+            
+            // Redirecionar para login
+            Navigation.NavigateTo("/login", true);
+        }
+    }
+}
 
 <style>
     .page {

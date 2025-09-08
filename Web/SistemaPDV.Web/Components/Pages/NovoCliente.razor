@@ -1,6 +1,5 @@
 @page "/clientes/novo"
 @page "/clientes/editar/{Id:int}"
-@rendermode InteractiveServer
 @using SistemaPDV.Core.DTOs
 @using SistemaPDV.Web.Services
 @inject ClienteApiService ClienteService
@@ -53,6 +52,7 @@
                                 <div class="col-md-6 mb-3">
                                     <label for="nome" class="form-label">Nome *</label>
                                     <input type="text" id="nome" name="nome" class="form-control" placeholder="Nome completo"
+                                           autocomplete="name"
                                            @bind="nome" required />
                                 </div>
 
@@ -60,6 +60,7 @@
                                 <div class="col-md-6 mb-3">
                                     <label for="email" class="form-label">Email</label>
                                     <input type="email" id="email" name="email" class="form-control" placeholder="email@exemplo.com"
+                                           autocomplete="email"
                                            @bind="email" />
                                 </div>
 
@@ -67,6 +68,7 @@
                                 <div class="col-md-6 mb-3">
                                     <label for="telefone" class="form-label">Telefone</label>
                                     <input type="tel" id="telefone" name="telefone" class="form-control" placeholder="(11) 99999-9999"
+                                           autocomplete="tel"
                                            @bind="telefone" />
                                 </div>
 
@@ -74,6 +76,7 @@
                                 <div class="col-md-6 mb-3">
                                     <label for="cpf" class="form-label">CPF</label>
                                     <input type="text" id="cpf" name="cpf" class="form-control" placeholder="000.000.000-00"
+                                           autocomplete="off"
                                            @bind="cpf" />
                                 </div>
 
@@ -81,6 +84,7 @@
                                 <div class="col-md-6 mb-3">
                                     <label for="cnpj" class="form-label">CNPJ</label>
                                     <input type="text" id="cnpj" name="cnpj" class="form-control" placeholder="00.000.000/0000-00"
+                                           autocomplete="off"
                                            @bind="cnpj" />
                                 </div>
 
@@ -88,6 +92,7 @@
                                 <div class="col-md-8 mb-3">
                                     <label for="endereco" class="form-label">Endereço</label>
                                     <input type="text" id="endereco" name="endereco" class="form-control" placeholder="Rua, Avenida, etc."
+                                           autocomplete="street-address"
                                            @bind="endereco" />
                                 </div>
 
@@ -95,6 +100,7 @@
                                 <div class="col-md-4 mb-3">
                                     <label for="numero" class="form-label">Número</label>
                                     <input type="text" id="numero" name="numero" class="form-control" placeholder="123"
+                                           autocomplete="off"
                                            @bind="numero" />
                                 </div>
 
@@ -102,6 +108,7 @@
                                 <div class="col-md-6 mb-3">
                                     <label for="complemento" class="form-label">Complemento</label>
                                     <input type="text" id="complemento" name="complemento" class="form-control" placeholder="Apto, Sala, etc."
+                                           autocomplete="off"
                                            @bind="complemento" />
                                 </div>
 
@@ -109,6 +116,7 @@
                                 <div class="col-md-6 mb-3">
                                     <label for="bairro" class="form-label">Bairro</label>
                                     <input type="text" id="bairro" name="bairro" class="form-control" placeholder="Bairro"
+                                           autocomplete="address-level2"
                                            @bind="bairro" />
                                 </div>
 
@@ -116,6 +124,7 @@
                                 <div class="col-md-6 mb-3">
                                     <label for="cidade" class="form-label">Cidade</label>
                                     <input type="text" id="cidade" name="cidade" class="form-control" placeholder="Cidade"
+                                           autocomplete="address-level2"
                                            @bind="cidade" />
                                 </div>
 
@@ -158,6 +167,7 @@
                                 <div class="col-md-3 mb-3">
                                     <label for="cep" class="form-label">CEP</label>
                                     <input type="text" id="cep" name="cep" class="form-control" placeholder="00000-000"
+                                           autocomplete="postal-code"
                                            @bind="cep" />
                                 </div>
 

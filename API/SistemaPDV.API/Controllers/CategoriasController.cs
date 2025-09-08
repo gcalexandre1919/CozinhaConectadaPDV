@@ -1,48 +1,54 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SistemaPDV.Core.DTOs;
-using SistemaPDV.Infrastructure.Data;
-using Microsoft.EntityFrameworkCore;
+using SistemaPDV.Core.Interfaces;
 
 namespace SistemaPDV.API.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize]
     public class CategoriasController : ControllerBase
     {
-        private readonly PDVDbContext _context;
+        private readonly ICategoriaService _categoriaService;
         private readonly ILogger<CategoriasController> _logger;
 
-        public CategoriasController(PDVDbContext context, ILogger<CategoriasController> logger)
+        public CategoriasController(ICategoriaService categoriaService, ILogger<CategoriasController> logger)
         {
-            _context = context;
+            _categoriaService = categoriaService;
             _logger = logger;
         }
 
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<CategoriaDto>>> GetCategorias()
+        public async Task<ActionResult<object>> GetCategorias(
+            [FromQuery] int pagina = 1, 
+            [FromQuery] int tamanhoPagina = 10)
         {
             try
             {
-                var categorias = await _context.Categorias
-                    .Include(c => c.Impressora)
-                    .Select(c => new CategoriaDto
-                    {
-                        Id = c.Id,
-                        Nome = c.Nome,
-                        Descricao = c.Descricao,
-                        Ativo = c.Ativo,
-                        DataCriacao = c.DataCriacao,
-                        ImpressoraId = c.ImpressoraId,
-                        ImpressoraNome = c.Impressora != null ? c.Impressora.Nome : null
-                    })
-                    .ToListAsync();
+                if (pagina <= 0) pagina = 1;
+                if (tamanhoPagina <= 0 || tamanhoPagina > 100) tamanhoPagina = 10;
 
-                return Ok(categorias);
+                var (categorias, total) = await _categoriaService.GetCategoriasAsync(pagina, tamanhoPagina);
+
+                var response = new
+                {
+                    Categorias = categorias,
+                    Paginacao = new
+                    {
+                        PaginaAtual = pagina,
+                        TamanhoPagina = tamanhoPagina,
+                        TotalItens = total,
+                        TotalPaginas = (int)Math.Ceiling((double)total / tamanhoPagina)
+                    }
+                };
+
+                return Ok(response);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Erro ao buscar categorias");
-                return StatusCode(500, "Erro interno do servidor");
+                _logger.LogError(ex, "Erro ao buscar categorias - Página: {Pagina}, Tamanho: {Tamanho}", pagina, tamanhoPagina);
+                return StatusCode(500, new { Erro = "Erro interno do servidor" });
             }
         }
 
@@ -51,27 +57,24 @@ namespace SistemaPDV.API.Controllers
         {
             try
             {
-                var categoria = await _context.Categorias
-                    .Where(c => c.Id == id)
-                    .Select(c => new CategoriaDto
-                    {
-                        Id = c.Id,
-                        Nome = c.Nome,
-                        Descricao = c.Descricao,
-                        Ativo = c.Ativo,
-                        DataCriacao = c.DataCriacao
-                    })
-                    .FirstOrDefaultAsync();
+                if (id <= 0)
+                {
+                    return BadRequest(new { Erro = "ID inválido" });
+                }
 
+                var categoria = await _categoriaService.GetCategoriaByIdAsync(id);
+                
                 if (categoria == null)
-                    return NotFound();
+                {
+                    return NotFound(new { Erro = "Categoria não encontrada" });
+                }
 
                 return Ok(categoria);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Erro ao buscar categoria {Id}", id);
-                return StatusCode(500, "Erro interno do servidor");
+                return StatusCode(500, new { Erro = "Erro interno do servidor" });
             }
         }
 
@@ -80,65 +83,59 @@ namespace SistemaPDV.API.Controllers
         {
             try
             {
-                var categoria = new SistemaPDV.Core.Entities.Categoria
+                if (!ModelState.IsValid)
                 {
-                    Nome = categoriaDto.Nome,
-                    Descricao = categoriaDto.Descricao,
-                    Ativo = true,
-                    DataCriacao = DateTime.Now
-                };
+                    return BadRequest(ModelState);
+                }
 
-                _context.Categorias.Add(categoria);
-                await _context.SaveChangesAsync();
-
-                var categoriaRetorno = new CategoriaDto
-                {
-                    Id = categoria.Id,
-                    Nome = categoria.Nome,
-                    Descricao = categoria.Descricao,
-                    Ativo = categoria.Ativo,
-                    DataCriacao = categoria.DataCriacao
-                };
-
-                return CreatedAtAction(nameof(GetCategoria), new { id = categoria.Id }, categoriaRetorno);
+                var categoria = await _categoriaService.CreateCategoriaAsync(categoriaDto);
+                return CreatedAtAction(nameof(GetCategoria), new { id = categoria.Id }, categoria);
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogWarning("Erro de negócio ao criar categoria: {Erro}", ex.Message);
+                return BadRequest(new { Erro = ex.Message });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Erro ao criar categoria");
-                return StatusCode(500, "Erro interno do servidor");
+                return StatusCode(500, new { Erro = "Erro interno do servidor" });
             }
         }
 
         [HttpPut("{id}")]
-        public async Task<ActionResult<CategoriaDto>> UpdateCategoria(int id, CategoriaDto categoriaDto)
+        public async Task<ActionResult<CategoriaDto>> UpdateCategoria(int id, CategoriaAtualizacaoDto categoriaDto)
         {
             try
             {
-                var categoria = await _context.Categorias.FindAsync(id);
-                if (categoria == null)
-                    return NotFound();
-
-                categoria.Nome = categoriaDto.Nome;
-                categoria.Descricao = categoriaDto.Descricao;
-                categoria.Ativo = categoriaDto.Ativo;
-
-                await _context.SaveChangesAsync();
-
-                var categoriaRetorno = new CategoriaDto
+                if (id <= 0)
                 {
-                    Id = categoria.Id,
-                    Nome = categoria.Nome,
-                    Descricao = categoria.Descricao,
-                    Ativo = categoria.Ativo,
-                    DataCriacao = categoria.DataCriacao
-                };
+                    return BadRequest(new { Erro = "ID inválido" });
+                }
 
-                return Ok(categoriaRetorno);
+                if (!ModelState.IsValid)
+                {
+                    return BadRequest(ModelState);
+                }
+
+                var categoria = await _categoriaService.UpdateCategoriaAsync(id, categoriaDto);
+                
+                if (categoria == null)
+                {
+                    return NotFound(new { Erro = "Categoria não encontrada" });
+                }
+
+                return Ok(categoria);
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogWarning("Erro de negócio ao atualizar categoria {Id}: {Erro}", id, ex.Message);
+                return BadRequest(new { Erro = ex.Message });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Erro ao atualizar categoria {Id}", id);
-                return StatusCode(500, "Erro interno do servidor");
+                return StatusCode(500, new { Erro = "Erro interno do servidor" });
             }
         }
 
@@ -147,63 +144,99 @@ namespace SistemaPDV.API.Controllers
         {
             try
             {
-                var categoria = await _context.Categorias.FindAsync(id);
-                if (categoria == null)
-                    return NotFound();
-
-                // Verificar se há produtos usando esta categoria
-                var produtosComCategoria = await _context.Produtos
-                    .Where(p => p.CategoriaId == id)
-                    .CountAsync();
-
-                if (produtosComCategoria > 0)
+                if (id <= 0)
                 {
-                    return BadRequest($"Não é possível excluir a categoria pois há {produtosComCategoria} produto(s) associado(s).");
+                    return BadRequest(new { Erro = "ID inválido" });
                 }
 
-                _context.Categorias.Remove(categoria);
-                await _context.SaveChangesAsync();
+                var sucesso = await _categoriaService.DeleteCategoriaAsync(id);
+                
+                if (!sucesso)
+                {
+                    return NotFound(new { Erro = "Categoria não encontrada" });
+                }
 
                 return NoContent();
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogWarning("Erro de negócio ao excluir categoria {Id}: {Erro}", id, ex.Message);
+                return BadRequest(new { Erro = ex.Message });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Erro ao excluir categoria {Id}", id);
-                return StatusCode(500, "Erro interno do servidor");
+                return StatusCode(500, new { Erro = "Erro interno do servidor" });
             }
         }
 
         [HttpGet("buscar")]
-        public async Task<ActionResult<IEnumerable<CategoriaDto>>> BuscarCategorias([FromQuery] string termo)
+        public async Task<ActionResult<object>> BuscarCategorias(
+            [FromQuery] string? termo,
+            [FromQuery] int pagina = 1, 
+            [FromQuery] int tamanhoPagina = 10)
         {
             try
             {
-                var query = _context.Categorias.AsQueryable();
+                if (pagina <= 0) pagina = 1;
+                if (tamanhoPagina <= 0 || tamanhoPagina > 100) tamanhoPagina = 10;
 
-                if (!string.IsNullOrWhiteSpace(termo))
+                var (categorias, total) = await _categoriaService.BuscarCategoriasAsync(termo, pagina, tamanhoPagina);
+
+                var response = new
                 {
-                    query = query.Where(c => 
-                        c.Nome.Contains(termo) || 
-                        (c.Descricao != null && c.Descricao.Contains(termo)));
-                }
-
-                var categorias = await query
-                    .Select(c => new CategoriaDto
+                    Categorias = categorias,
+                    TermoBusca = termo,
+                    Paginacao = new
                     {
-                        Id = c.Id,
-                        Nome = c.Nome,
-                        Descricao = c.Descricao,
-                        Ativo = c.Ativo,
-                        DataCriacao = c.DataCriacao
-                    })
-                    .ToListAsync();
+                        PaginaAtual = pagina,
+                        TamanhoPagina = tamanhoPagina,
+                        TotalItens = total,
+                        TotalPaginas = (int)Math.Ceiling((double)total / tamanhoPagina)
+                    }
+                };
 
-                return Ok(categorias);
+                return Ok(response);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Erro ao buscar categorias com termo: {Termo}", termo);
-                return StatusCode(500, "Erro interno do servidor");
+                return StatusCode(500, new { Erro = "Erro interno do servidor" });
+            }
+        }
+
+        [HttpGet("ativas")]
+        public async Task<ActionResult<IEnumerable<CategoriaDto>>> GetCategoriasAtivas()
+        {
+            try
+            {
+                var categorias = await _categoriaService.GetCategoriasAtivasAsync();
+                return Ok(categorias);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao buscar categorias ativas");
+                return StatusCode(500, new { Erro = "Erro interno do servidor" });
+            }
+        }
+
+        [HttpGet("verificar-nome")]
+        public async Task<ActionResult<object>> VerificarNome([FromQuery] string nome, [FromQuery] int? idExcluir = null)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(nome))
+                {
+                    return BadRequest(new { Erro = "Nome é obrigatório" });
+                }
+
+                var existe = await _categoriaService.ExisteCategoriaPorNomeAsync(nome, idExcluir);
+                return Ok(new { Existe = existe });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao verificar nome da categoria: {Nome}", nome);
+                return StatusCode(500, new { Erro = "Erro interno do servidor" });
             }
         }
     }

@@ -21,7 +21,9 @@ namespace SistemaPDV.Infrastructure.Data
         public DbSet<RelatorioVenda> RelatoriosVenda { get; set; }
         public DbSet<VendaProduto> VendaProdutos { get; set; }
         public DbSet<Restaurante> Restaurantes { get; set; }
-        public DbSet<ApplicationUser> Users { get; set; }
+        public DbSet<ApplicationUser> ApplicationUsers { get; set; }
+        public DbSet<RefreshToken> RefreshTokens { get; set; }
+        public DbSet<LoginAttempt> LoginAttempts { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -153,6 +155,73 @@ namespace SistemaPDV.Infrastructure.Data
                 entity.HasKey(e => e.Id);
                 entity.Property(e => e.DataVenda).IsRequired();
                 entity.Property(e => e.TotalVenda).HasColumnType("decimal(10,2)");
+            });
+
+            // Configurações das entidades de autenticação
+            modelBuilder.Entity<ApplicationUser>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Email).IsRequired().HasMaxLength(255);
+                entity.Property(e => e.Nome).IsRequired().HasMaxLength(100);
+                entity.Property(e => e.PasswordHash).IsRequired().HasMaxLength(255);
+                entity.Property(e => e.IsActive).HasDefaultValue(true);
+                entity.Property(e => e.IsAdmin).HasDefaultValue(false);
+                entity.Property(e => e.CriadoEm).HasDefaultValue(DateTime.UtcNow);
+                
+                // Relacionamentos
+                entity.HasOne(e => e.Restaurante)
+                      .WithMany()
+                      .HasForeignKey(e => e.RestauranteId)
+                      .OnDelete(DeleteBehavior.Restrict);
+                
+                entity.HasMany<RefreshToken>()
+                      .WithOne(rt => rt.User)
+                      .HasForeignKey(rt => rt.UserId)
+                      .OnDelete(DeleteBehavior.Cascade);
+                
+                // Índices
+                entity.HasIndex(e => e.Email).IsUnique();
+                entity.HasIndex(e => e.RestauranteId);
+                entity.HasIndex(e => e.IsActive);
+            });
+
+            modelBuilder.Entity<RefreshToken>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Token).IsRequired().HasMaxLength(500);
+                entity.Property(e => e.ExpiresAt).IsRequired();
+                entity.Property(e => e.CreatedAt).IsRequired();
+                entity.Property(e => e.RevokedReason).HasMaxLength(200);
+                entity.Property(e => e.IpAddress).HasMaxLength(45);
+                entity.Property(e => e.UserAgent).HasMaxLength(500);
+                
+                // Índices para performance
+                entity.HasIndex(e => e.Token).IsUnique();
+                entity.HasIndex(e => e.UserId);
+                entity.HasIndex(e => e.ExpiresAt);
+                entity.HasIndex(e => new { e.UserId, e.RevokedAt });
+            });
+
+            // Configurar índices da entidade LoginAttempt
+            LoginAttempt.ConfigureIndexes(modelBuilder);
+
+            modelBuilder.Entity<LoginAttempt>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Email).IsRequired().HasMaxLength(255);
+                entity.Property(e => e.FailureReason).HasMaxLength(200);
+                entity.Property(e => e.IpAddress).IsRequired().HasMaxLength(45);
+                entity.Property(e => e.UserAgent).HasMaxLength(500);
+                entity.Property(e => e.Location).HasMaxLength(100);
+                entity.Property(e => e.Country).HasMaxLength(100);
+                entity.Property(e => e.City).HasMaxLength(100);
+                entity.Property(e => e.AdditionalInfo).HasMaxLength(500);
+                
+                // Relacionamento opcional com usuário
+                entity.HasOne(e => e.User)
+                      .WithMany()
+                      .HasForeignKey(e => e.UserId)
+                      .OnDelete(DeleteBehavior.SetNull);
             });
         }
     }

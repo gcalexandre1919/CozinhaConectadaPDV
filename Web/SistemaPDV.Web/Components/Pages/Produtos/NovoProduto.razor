@@ -2,7 +2,7 @@
 @page "/produtos/editar/{Id:int}"
 @rendermode InteractiveServer
 @using SistemaPDV.Core.DTOs
-@inject HttpClient Http
+@inject IHttpClientFactory HttpClientFactory
 @inject NavigationManager Navigation
 
 <PageTitle>@(Id.HasValue ? "Editar Produto" : "Novo Produto") - Sistema PDV</PageTitle>
@@ -198,7 +198,8 @@
     {
         try
         {
-            categorias = await Http.GetFromJsonAsync<List<CategoriaDto>>("api/categorias") ?? new();
+            using var httpClient = HttpClientFactory.CreateClient("Default");
+            categorias = await httpClient.GetFromJsonAsync<List<CategoriaDto>>("api/categorias") ?? new();
         }
         catch (Exception ex)
         {
@@ -216,7 +217,8 @@
 
         try
         {
-            var produtoCarregado = await Http.GetFromJsonAsync<ProdutoDto>($"api/produtos/{Id.Value}");
+            using var httpClient = HttpClientFactory.CreateClient("Default");
+            var produtoCarregado = await httpClient.GetFromJsonAsync<ProdutoDto>($"api/produtos/{Id.Value}");
             if (produtoCarregado != null)
             {
                 produto = produtoCarregado;
@@ -249,7 +251,8 @@
             if (Id.HasValue && Id.Value > 0)
             {
                 // Editar produto existente
-                var response = await Http.PutAsJsonAsync($"api/produtos/{Id.Value}", produto);
+                using var httpClient = HttpClientFactory.CreateClient("Default");
+                var response = await httpClient.PutAsJsonAsync($"api/produtos/{Id.Value}", produto);
                 if (response.IsSuccessStatusCode)
                 {
                     mensagemSucesso = "Produto atualizado com sucesso!";
@@ -273,7 +276,8 @@
                     CategoriaId = produto.CategoriaId
                 };
 
-                var response = await Http.PostAsJsonAsync("api/produtos", novoProduto);
+                using var httpClient = HttpClientFactory.CreateClient("Default");
+                var response = await httpClient.PostAsJsonAsync("api/produtos", novoProduto);
                 if (response.IsSuccessStatusCode)
                 {
                     mensagemSucesso = "Produto criado com sucesso!";

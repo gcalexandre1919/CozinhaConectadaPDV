@@ -1,20 +1,21 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using SistemaPDV.Core.Entities;
-using SistemaPDV.Infrastructure.Data;
+using SistemaPDV.Core.DTOs;
+using SistemaPDV.Core.Interfaces;
 
 namespace SistemaPDV.API.Controllers
 {
+    [Authorize]
     [ApiController]
     [Route("api/[controller]")]
     public class RestaurantesController : ControllerBase
     {
-        private readonly PDVDbContext _context;
+        private readonly IRestauranteService _restauranteService;
         private readonly ILogger<RestaurantesController> _logger;
 
-        public RestaurantesController(PDVDbContext context, ILogger<RestaurantesController> logger)
+        public RestaurantesController(IRestauranteService restauranteService, ILogger<RestaurantesController> logger)
         {
-            _context = context;
+            _restauranteService = restauranteService;
             _logger = logger;
         }
 
@@ -22,15 +23,15 @@ namespace SistemaPDV.API.Controllers
         /// Obter todos os restaurantes
         /// </summary>
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<Restaurante>>> ObterTodos()
+        public async Task<ActionResult<IEnumerable<RestauranteDto>>> ObterTodos()
         {
             try
             {
-                var restaurantes = await _context.Restaurantes
-                    .Where(r => r.Ativo)
-                    .OrderBy(r => r.Nome)
-                    .ToListAsync();
+                _logger.LogInformation("Obtaining all restaurants");
 
+                var restaurantes = await _restauranteService.GetAllAsync();
+
+                _logger.LogInformation("Successfully obtained {Count} restaurants", restaurantes.Count());
                 return Ok(restaurantes);
             }
             catch (Exception ex)
@@ -44,14 +45,21 @@ namespace SistemaPDV.API.Controllers
         /// Obter restaurante por ID
         /// </summary>
         [HttpGet("{id}")]
-        public async Task<ActionResult<Restaurante>> ObterPorId(int id)
+        public async Task<ActionResult<RestauranteDto>> ObterPorId(int id)
         {
             try
             {
-                var restaurante = await _context.Restaurantes.FindAsync(id);
-                if (restaurante == null)
-                    return NotFound($"Restaurante com ID {id} não encontrado");
+                _logger.LogInformation("Obtaining restaurant by ID: {RestaurantId}", id);
 
+                var restaurante = await _restauranteService.GetByIdAsync(id);
+                
+                if (restaurante == null)
+                {
+                    _logger.LogWarning("Restaurant not found: {RestaurantId}", id);
+                    return NotFound($"Restaurante com ID {id} não encontrado");
+                }
+
+                _logger.LogInformation("Successfully obtained restaurant: {RestaurantId} - {Nome}", id, restaurante.Nome);
                 return Ok(restaurante);
             }
             catch (Exception ex)
@@ -65,27 +73,27 @@ namespace SistemaPDV.API.Controllers
         /// Criar novo restaurante
         /// </summary>
         [HttpPost]
-        public async Task<ActionResult<Restaurante>> Criar([FromBody] Restaurante restaurante)
+        public async Task<ActionResult<RestauranteDto>> Criar([FromBody] RestauranteCriacaoDto restauranteDto)
         {
             try
             {
+                _logger.LogInformation("Attempting to create restaurant: {Nome}", restauranteDto.Nome);
+
                 if (!ModelState.IsValid)
+                {
+                    _logger.LogWarning("Invalid ModelState for restaurant creation: {Nome}", restauranteDto.Nome);
                     return BadRequest(ModelState);
+                }
 
-                // Verificar se já existe restaurante com o mesmo nome
-                var existeNome = await _context.Restaurantes
-                    .AnyAsync(r => r.Nome.ToLower() == restaurante.Nome.ToLower() && r.Ativo);
-                
-                if (existeNome)
-                    return BadRequest("Já existe um restaurante com este nome");
+                var restauranteResult = await _restauranteService.CreateAsync(restauranteDto);
 
-                restaurante.DataCadastro = DateTime.Now;
-                restaurante.Ativo = true;
-
-                _context.Restaurantes.Add(restaurante);
-                await _context.SaveChangesAsync();
-
-                return CreatedAtAction(nameof(ObterPorId), new { id = restaurante.Id }, restaurante);
+                _logger.LogInformation("Successfully created restaurant: {RestaurantId} - {Nome}", restauranteResult.Id, restauranteResult.Nome);
+                return CreatedAtAction(nameof(ObterPorId), new { id = restauranteResult.Id }, restauranteResult);
+            }
+            catch (ArgumentException ex)
+            {
+                _logger.LogWarning(ex, "Validation error creating restaurant: {Message}", ex.Message);
+                return BadRequest(ex.Message);
             }
             catch (Exception ex)
             {
@@ -98,42 +106,33 @@ namespace SistemaPDV.API.Controllers
         /// Atualizar restaurante
         /// </summary>
         [HttpPut("{id}")]
-        public async Task<ActionResult<Restaurante>> Atualizar(int id, [FromBody] Restaurante restaurante)
+        public async Task<ActionResult<RestauranteDto>> Atualizar(int id, [FromBody] RestauranteAtualizacaoDto restauranteDto)
         {
             try
             {
-                if (id != restaurante.Id)
-                    return BadRequest("ID do restaurante não confere");
+                _logger.LogInformation("Attempting to update restaurant: {RestaurantId}", id);
 
                 if (!ModelState.IsValid)
+                {
+                    _logger.LogWarning("Invalid ModelState for restaurant update: {RestaurantId}", id);
                     return BadRequest(ModelState);
+                }
 
-                var restauranteExistente = await _context.Restaurantes.FindAsync(id);
-                if (restauranteExistente == null)
-                    return NotFound($"Restaurante com ID {id} não encontrado");
-
-                // Verificar se já existe outro restaurante com o mesmo nome
-                var existeOutroNome = await _context.Restaurantes
-                    .AnyAsync(r => r.Nome.ToLower() == restaurante.Nome.ToLower() && r.Id != id && r.Ativo);
+                var restauranteResult = await _restauranteService.UpdateAsync(id, restauranteDto);
                 
-                if (existeOutroNome)
-                    return BadRequest("Já existe outro restaurante com este nome");
+                if (restauranteResult == null)
+                {
+                    _logger.LogWarning("Restaurant not found for update: {RestaurantId}", id);
+                    return NotFound($"Restaurante com ID {id} não encontrado");
+                }
 
-                restauranteExistente.Nome = restaurante.Nome;
-                restauranteExistente.CNPJ = restaurante.CNPJ;
-                restauranteExistente.Telefone = restaurante.Telefone;
-                restauranteExistente.Email = restaurante.Email;
-                restauranteExistente.Endereco = restaurante.Endereco;
-                restauranteExistente.Numero = restaurante.Numero;
-                restauranteExistente.Complemento = restaurante.Complemento;
-                restauranteExistente.Bairro = restaurante.Bairro;
-                restauranteExistente.Cidade = restaurante.Cidade;
-                restauranteExistente.UF = restaurante.UF;
-                restauranteExistente.CEP = restaurante.CEP;
-
-                await _context.SaveChangesAsync();
-
-                return Ok(restauranteExistente);
+                _logger.LogInformation("Successfully updated restaurant: {RestaurantId} - {Nome}", id, restauranteResult.Nome);
+                return Ok(restauranteResult);
+            }
+            catch (ArgumentException ex)
+            {
+                _logger.LogWarning(ex, "Validation error updating restaurant {RestaurantId}: {Message}", id, ex.Message);
+                return BadRequest(ex.Message);
             }
             catch (Exception ex)
             {
@@ -150,26 +149,18 @@ namespace SistemaPDV.API.Controllers
         {
             try
             {
-                var restaurante = await _context.Restaurantes.FindAsync(id);
-                if (restaurante == null)
-                    return NotFound($"Restaurante com ID {id} não encontrado");
+                _logger.LogInformation("Attempting to delete restaurant: {RestaurantId}", id);
 
-                // Verificar se existem pedidos vinculados
-                var temPedidos = await _context.Pedidos.AnyAsync(p => p.RestauranteId == id);
-                if (temPedidos)
+                var sucesso = await _restauranteService.DeleteAsync(id);
+                
+                if (!sucesso)
                 {
-                    // Soft delete
-                    restaurante.Ativo = false;
-                    await _context.SaveChangesAsync();
-                    return Ok(new { mensagem = "Restaurante desativado com sucesso" });
+                    _logger.LogWarning("Restaurant not found for deletion: {RestaurantId}", id);
+                    return NotFound($"Restaurante com ID {id} não encontrado");
                 }
-                else
-                {
-                    // Hard delete se não tem pedidos
-                    _context.Restaurantes.Remove(restaurante);
-                    await _context.SaveChangesAsync();
-                    return Ok(new { mensagem = "Restaurante removido com sucesso" });
-                }
+
+                _logger.LogInformation("Successfully deleted restaurant: {RestaurantId}", id);
+                return Ok(new { mensagem = "Restaurante removido/desativado com sucesso" });
             }
             catch (Exception ex)
             {
@@ -186,13 +177,17 @@ namespace SistemaPDV.API.Controllers
         {
             try
             {
-                var restaurante = await _context.Restaurantes.FindAsync(id);
-                if (restaurante == null)
+                _logger.LogInformation("Attempting to activate restaurant: {RestaurantId}", id);
+
+                var sucesso = await _restauranteService.ActivateAsync(id);
+                
+                if (!sucesso)
+                {
+                    _logger.LogWarning("Restaurant not found for activation: {RestaurantId}", id);
                     return NotFound($"Restaurante com ID {id} não encontrado");
+                }
 
-                restaurante.Ativo = true;
-                await _context.SaveChangesAsync();
-
+                _logger.LogInformation("Successfully activated restaurant: {RestaurantId}", id);
                 return Ok(new { mensagem = "Restaurante ativado com sucesso" });
             }
             catch (Exception ex)
@@ -206,32 +201,21 @@ namespace SistemaPDV.API.Controllers
         /// Obter estatísticas do restaurante
         /// </summary>
         [HttpGet("{id}/estatisticas")]
-        public async Task<ActionResult> ObterEstatisticas(int id)
+        public async Task<ActionResult<RestauranteEstatisticasDto>> ObterEstatisticas(int id)
         {
             try
             {
-                var restaurante = await _context.Restaurantes.FindAsync(id);
-                if (restaurante == null)
-                    return NotFound($"Restaurante com ID {id} não encontrado");
+                _logger.LogInformation("Obtaining statistics for restaurant: {RestaurantId}", id);
 
-                var hoje = DateTime.Today;
-                var inicioMes = new DateTime(hoje.Year, hoje.Month, 1);
-
-                var estatisticas = new
+                var estatisticas = await _restauranteService.GetStatisticsAsync(id);
+                
+                if (estatisticas == null)
                 {
-                    pedidosHoje = await _context.Pedidos.CountAsync(p => p.RestauranteId == id && p.DataCriacao.Date == hoje),
-                    pedidosMes = await _context.Pedidos.CountAsync(p => p.RestauranteId == id && p.DataCriacao >= inicioMes),
-                    vendasHoje = await _context.Pedidos
-                        .Where(p => p.RestauranteId == id && p.DataCriacao.Date == hoje && p.Status != StatusPedido.Cancelado)
-                        .SumAsync(p => p.ValorTotal),
-                    vendasMes = await _context.Pedidos
-                        .Where(p => p.RestauranteId == id && p.DataCriacao >= inicioMes && p.Status != StatusPedido.Cancelado)
-                        .SumAsync(p => p.ValorTotal),
-                    clientesAtivos = await _context.Clientes
-                        .Where(c => c.Pedidos.Any(p => p.RestauranteId == id) && c.Ativo)
-                        .CountAsync()
-                };
+                    _logger.LogWarning("Restaurant not found for statistics: {RestaurantId}", id);
+                    return NotFound($"Restaurante com ID {id} não encontrado");
+                }
 
+                _logger.LogInformation("Successfully obtained statistics for restaurant: {RestaurantId} - {Nome}", id, estatisticas.Nome);
                 return Ok(estatisticas);
             }
             catch (Exception ex)
@@ -240,5 +224,127 @@ namespace SistemaPDV.API.Controllers
                 return StatusCode(500, "Erro interno do servidor");
             }
         }
+
+        #region Modern API Endpoints (English)
+
+        /// <summary>
+        /// Get all restaurants (modern endpoint)
+        /// </summary>
+        [HttpGet("all")]
+        public async Task<ActionResult<IEnumerable<RestauranteDto>>> GetAll()
+        {
+            try
+            {
+                var restaurantes = await _restauranteService.GetAllAsync();
+                return Ok(restaurantes);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting all restaurants");
+                return StatusCode(500, "Internal server error");
+            }
+        }
+
+        /// <summary>
+        /// Get only active restaurants
+        /// </summary>
+        [HttpGet("active")]
+        public async Task<ActionResult<IEnumerable<RestauranteDto>>> GetActive()
+        {
+            try
+            {
+                var restaurantes = await _restauranteService.GetActiveAsync();
+                return Ok(restaurantes);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting active restaurants");
+                return StatusCode(500, "Internal server error");
+            }
+        }
+
+        /// <summary>
+        /// Check if restaurant exists by ID
+        /// </summary>
+        [HttpGet("{id}/exists")]
+        public async Task<ActionResult<bool>> Exists(int id)
+        {
+            try
+            {
+                var exists = await _restauranteService.ExistsAsync(id);
+                return Ok(new { exists });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error checking restaurant existence");
+                return StatusCode(500, "Internal server error");
+            }
+        }
+
+        /// <summary>
+        /// Check if restaurant name exists
+        /// </summary>
+        [HttpGet("name-exists")]
+        public async Task<ActionResult<bool>> NameExists([FromQuery] string name, [FromQuery] int? excludeId = null)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(name))
+                    return BadRequest("Name is required");
+
+                var exists = await _restauranteService.NameExistsAsync(name, excludeId);
+                return Ok(new { exists });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error checking name existence");
+                return StatusCode(500, "Internal server error");
+            }
+        }
+
+        /// <summary>
+        /// Check if restaurant CNPJ exists
+        /// </summary>
+        [HttpGet("cnpj-exists")]
+        public async Task<ActionResult<bool>> CnpjExists([FromQuery] string cnpj, [FromQuery] int? excludeId = null)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(cnpj))
+                    return BadRequest("CNPJ is required");
+
+                var exists = await _restauranteService.CnpjExistsAsync(cnpj, excludeId);
+                return Ok(new { exists });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error checking CNPJ existence");
+                return StatusCode(500, "Internal server error");
+            }
+        }
+
+        /// <summary>
+        /// Deactivate restaurant (modern endpoint)
+        /// </summary>
+        [HttpPost("{id}/deactivate")]
+        public async Task<ActionResult> Deactivate(int id)
+        {
+            try
+            {
+                var success = await _restauranteService.DeactivateAsync(id);
+                
+                if (!success)
+                    return NotFound($"Restaurant with ID {id} not found");
+
+                return Ok(new { message = "Restaurant deactivated successfully" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deactivating restaurant");
+                return StatusCode(500, "Internal server error");
+            }
+        }
+
+        #endregion
     }
 }
